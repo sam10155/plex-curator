@@ -9,4 +9,3 @@ prompt: |
   ["Movie 1 (2000)", "Movie 2 (1999)", "Movie 3 (1984)", "Movie 4 (2024)"]
 filters:
   min_rating: 6.0
-

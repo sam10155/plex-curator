@@ -3,11 +3,8 @@ import os
 import json
 import yaml
 import datetime
-import time
 import unicodedata
-import random
 import requests
-import schedule
 from difflib import SequenceMatcher
 from plexapi.server import PlexServer
 from plexapi.playlist import Playlist
@@ -65,13 +62,18 @@ history = load_json_file(HISTORY_FILE)
 # -------------------------
 def tmdb_search_by_keywords(keywords, max_results=MAX_TMBD_CANDIDATES, min_rating=0):
     results = []
+    seen_ids = set()
+    
     for kw in keywords:
         search = tmdb.Search()
         try:
             resp = search.movie(query=kw)
             for r in resp.get("results", []):
-                if r in results:
+                movie_id = r.get("id")
+                if movie_id in seen_ids:
                     continue
+                seen_ids.add(movie_id)
+                
                 rating = r.get("vote_average") or 0
                 if rating < min_rating:
                     continue
@@ -82,7 +84,17 @@ def tmdb_search_by_keywords(keywords, max_results=MAX_TMBD_CANDIDATES, min_ratin
             log(f"[WARN] TMDB search error for '{kw}': {e}")
         if len(results) >= max_results:
             break
-    log(f"TMDB found {len(results)} movies matching keywords: {keywords}")
+    
+    log(f"TMDB found {len(results)} unique movies")
+    
+    # Show first 10 results
+    if results:
+        log("First 10 TMDB results:")
+        for i, movie in enumerate(results[:10], 1):
+            year = movie.get("release_date", "")[:4] if movie.get("release_date") else "????"
+            rating = movie.get("vote_average", 0)
+            log(f"  {i}. {movie.get('title')} ({year}) - Rating: {rating}/10")
+    
     return results
 
 # -------------------------
@@ -97,10 +109,6 @@ def clean_keywords(keywords):
 def parse_ollama_response(resp_text):
     """
     Parse AI output into a clean Python list of strings.
-    Handles:
-    - Proper JSON lists
-    - Comma-separated strings
-    - Line-separated strings with bullets/numbers
     """
     resp_text = resp_text.strip()
     if not resp_text:
@@ -158,8 +166,8 @@ def ai_request(prompt):
                 except json.JSONDecodeError:
                     response_text += line
         cleaned_list = parse_ollama_response(response_text)
-        log(f"[DEBUG] Raw AI response: {response_text}")
-        log(f"[DEBUG] Cleaned AI list: {cleaned_list}")
+        log(f"[DEBUG] Raw AI response (first 200 chars): {response_text[:200]}...")
+        log(f"[DEBUG] Cleaned AI list ({len(cleaned_list)} items): {cleaned_list[:5]}...")
         return cleaned_list
     except Exception as e:
         log(f"[ERROR] AI request failed: {e}")
@@ -169,18 +177,16 @@ def ai_request(prompt):
 def generate_keywords_from_name(playlist_name):
     """
     Generate a theme-agnostic list of keywords from the playlist name.
-    Falls back to splitting the name if AI fails.
     """
     prompt = f"Generate 7 concise keywords describing the theme/genre of a movie playlist named: '{playlist_name}'. Return strictly as a JSON list of words."
     keywords = ai_request(prompt)
     if not keywords:
-        # fallback: split by space and remove duplicates
         keywords = list(set(re.findall(r'\w+', playlist_name.lower())))
     return keywords
 
 
 # -------------------------
-# Plex Matching
+# Title Normalization
 # -------------------------
 def normalize_title(title):
     """
@@ -196,34 +202,51 @@ def normalize_title(title):
     title = unicodedata.normalize("NFKD", title)  # normalize unicode
     return title.strip()
 
-from difflib import SequenceMatcher
 
-def find_movies_on_plex(tmdb_movies, plex, keywords):
+# -------------------------
+# Plex Matching
+# -------------------------
+def find_movies_on_plex(tmdb_movies, plex, keywords, ai_count_hint=0):
     """
     Match TMDB movies to Plex library, with ranked keyword fallback.
     Returns actual Plex movie objects ready for playlist creation.
+    Also returns stats about AI vs keyword matches.
+    
+    ai_count_hint: number of AI-suggested movies at the start of tmdb_movies list
     """
     plex_movies = plex.library.section("Movies").all()
     matched = []
+    ai_matched_count = 0  # Track how many came from AI selection
 
     plex_map = {normalize_title(m.title): m for m in plex_movies}
-    log(f"[DEBUG] Searching Plex library with {len(tmdb_movies)} TMDB candidates")
+    log(f"[DEBUG] Searching Plex library ({len(plex_movies)} movies) with {len(tmdb_movies)} TMDB candidates")
 
-    for tmdb_movie in tmdb_movies:
+    # First pass: exact title matches from TMDB candidates
+    # Track which ones came from AI suggestions (first N items in the list)
+    for idx, tmdb_movie in enumerate(tmdb_movies):
         tmdb_title = normalize_title(tmdb_movie.get("title", ""))
         if tmdb_title in plex_map:
             plex_movie = plex_map[tmdb_title]
             if plex_movie not in matched:
                 matched.append(plex_movie)
-                log(f"[DEBUG] Matched: {plex_movie.title}")
+                if idx < ai_count_hint:
+                    ai_matched_count += 1
+                    log(f"[DEBUG] AI Match: {plex_movie.title}")
+                else:
+                    log(f"[DEBUG] Keyword Match: {plex_movie.title}")
         if len(matched) >= MAX_PLAYLIST_ITEMS:
             break
 
+    # Second pass: keyword-based fallback if needed
     if len(matched) < MAX_PLAYLIST_ITEMS:
-        log(f"[DEBUG] Only found {len(matched)} direct matches, using ranked keyword fallback...")
+        log(f"[DEBUG] Found {ai_matched_count} AI matches and {len(matched) - ai_matched_count} keyword matches")
+        log(f"[DEBUG] Need {MAX_PLAYLIST_ITEMS - len(matched)} more movies, using ranked keyword fallback...")
         scored = []
 
         for movie in plex_movies:
+            if movie in matched:
+                continue
+                
             searchable = " ".join([
                 movie.title or "",
                 getattr(movie, "summary", "") or "",
@@ -235,7 +258,7 @@ def find_movies_on_plex(tmdb_movies, plex, keywords):
             if hit_count == 0:
                 continue
 
-            # Compute fuzzy title similarity
+            # Compute fuzzy title similarity to keywords
             fuzz_score = max(
                 SequenceMatcher(None, normalize_title(movie.title), normalize_title(kw)).ratio()
                 for kw in keywords
@@ -247,32 +270,31 @@ def find_movies_on_plex(tmdb_movies, plex, keywords):
 
         # Sort high-to-low and pick top results
         scored.sort(key=lambda x: x[0], reverse=True)
-        for _, movie in scored:
+        for score, movie in scored:
             if movie not in matched:
                 matched.append(movie)
-                log(f"[DEBUG] Ranked keyword match: {movie.title}")
+                log(f"[DEBUG] Keyword Match (score: {score:.1f}): {movie.title}")
             if len(matched) >= MAX_PLAYLIST_ITEMS:
                 break
 
     matched = [m for m in matched if hasattr(m, "ratingKey")]
-    log(f"Final playlist items ({len(matched)}): {[m.title for m in matched]}")
-    return matched[:MAX_PLAYLIST_ITEMS]
-
+    log(f"Final playlist: {ai_matched_count}/{len(matched)} movies from AI selection, {len(matched) - ai_matched_count} from keyword fallback")
+    log(f"Movies: {[m.title for m in matched]}")
+    
+    return matched[:MAX_PLAYLIST_ITEMS], ai_matched_count
 
 
 # -------------------------
 # Playlist Creation
 # -------------------------
-def create_or_replace_playlist(name, items):
+def create_or_replace_playlist(name, items, ai_count):
     # Validate items
     items = [i for i in items if hasattr(i, "ratingKey") and getattr(i, "ratingKey")]
     if not items:
         log(f"[WARN] No valid Plex items to add for playlist '{name}', skipping creation")
         return
     
-    log(f"[DEBUG] Creating playlist with {len(items)} items")
-    log(f"[DEBUG] Item types: {[type(i).__name__ for i in items[:3]]}")
-    log(f"[DEBUG] Item ratingKeys: {[i.ratingKey for i in items[:3]]}")
+    log(f"[DEBUG] Creating playlist with {len(items)} items ({ai_count} from AI, {len(items) - ai_count} from keywords)")
 
     # Delete old playlist if exists
     for pl in plex.playlists():
@@ -281,32 +303,33 @@ def create_or_replace_playlist(name, items):
             pl.delete()
             break
 
-    # Create new playlist - explicitly pass items parameter
+    # Create new playlist
     try:
-        playlist = Playlist.create(plex, name, items=items)
-        log(f"Playlist created: {name} ({len(items)} items)")
+        playlist = plex.createPlaylist(title=name, items=items)
+        log(f"[+] Playlist '{name}' created successfully!")
+        log(f"    - Total movies: {len(items)}")
+        log(f"    - AI-curated: {ai_count}")
+        log(f"    - Keyword-matched: {len(items) - ai_count}")
+        return playlist
     except Exception as e:
-        log(f"[ERROR] Failed to create playlist: {e}")
-        log(f"[DEBUG] Attempting alternative creation method...")
-        try:
-            # Alternative: use server.createPlaylist method
-            playlist = plex.createPlaylist(title=name, items=items)
-            log(f"Playlist created via alternative method: {name} ({len(items)} items)")
-        except Exception as e2:
-            log(f"[ERROR] Alternative method also failed: {e2}")
-            raise
+        log(f"[X] Failed to create playlist: {e}")
+        raise
 
 
 # -------------------------
 # Main Curator Logic
 # -------------------------
 def run_curator():
-    log("Curator Started...")
+    log("=" * 70)
+    log("PLEX CURATOR STARTED")
+    log("=" * 70)
 
     month_name = datetime.datetime.now().strftime("%B").lower()
     theme_file = os.path.join(BASE_DIR, "themes", f"{month_name}.yaml")
+    
     if not os.path.exists(theme_file):
-        log(f"No theme file for {month_name}, skipping.")
+        log(f"[X] No theme file found for {month_name}")
+        log(f"    Expected: {theme_file}")
         return
 
     with open(theme_file, "r") as f:
@@ -316,74 +339,146 @@ def run_curator():
     month_prompt = theme_cfg.get("prompt", "")
     min_rating = theme_cfg.get("filters", {}).get("min_rating", 0)
 
+    log(f"[-] Playlist Name: {playlist_name}")
+    log(f"[-] Month: {month_name.title()}")
+    if min_rating > 0:
+        log(f"[-] Minimum Rating: {min_rating}/10")
+
+    # Get or generate keywords
     theme_keywords = theme_cfg.get("keywords", None)
     if not theme_keywords:
-        log(f"[INFO] No keywords in YAML, generating from playlist name '{playlist_name}'...")
+        log(f"[-] No keywords in YAML, generating from playlist name...")
         theme_keywords = generate_keywords_from_name(playlist_name)
+    
     if not theme_keywords:
-        log("[WARN] No theme keywords generated, skipping playlist creation")
+        log("[X] No theme keywords generated, skipping playlist creation")
         return
 
     theme_keywords = clean_keywords(theme_keywords)
-    log(f"Using keywords: {theme_keywords}")
+    log(f"[-] Theme Keywords: {', '.join(theme_keywords)}")
+    log("")
 
-    # TMDB Search - this gets us candidates based on keywords
+    # TMDB Search
+    log("STEP 1: Searching TMDB for candidate movies...")
+    log("-" * 70)
     tmdb_candidates = tmdb_search_by_keywords(theme_keywords, max_results=MAX_TMBD_CANDIDATES, min_rating=min_rating)
     
     if not tmdb_candidates:
-        log("[WARN] No TMDB candidates found, skipping playlist creation")
+        log("[X] No TMDB candidates found")
         return
+    log("")
 
-    # AI selection - let AI pick the best titles from our candidates
-    candidate_text = "\n".join([f"{m['title']}" for m in tmdb_candidates[:100]])  # Limit for token size
-    ai_selection_prompt = f"{month_prompt}\n\nFrom this list of movie titles, select up to {MAX_AI_SELECTION} that best fit the theme. Return ONLY the exact movie titles as a JSON list with no descriptions or extra text:\n{candidate_text}"
-    selected_titles = ai_request(ai_selection_prompt)
+    # AI selection - let AI suggest movies, then search TMDB for them
+    ai_tmdb_results = []  # Initialize outside the if block
     
-    # Extract just the title if AI added descriptions (split on " - " or " : ")
-    cleaned_selected_titles = []
-    for title in selected_titles:
-        # Remove common AI-added prefixes/suffixes
-        title = re.sub(r'\s*[-:]\s*.*$', '', title)  # Remove everything after " - " or " : "
-        title = title.strip('"\'')
-        if title and not title.startswith("It seems") and not title.startswith("Here"):
-            cleaned_selected_titles.append(title)
+    if month_prompt and month_prompt.strip():
+        log("STEP 2: Using AI to suggest movies for the theme...")
+        log("-" * 70)
+        
+        # Ask AI to suggest movies directly (not from TMDB list)
+        ai_selection_prompt = f"{month_prompt}\n\nSuggest up to {MAX_AI_SELECTION} well-known movie titles that best fit this theme. Return ONLY a JSON list of movie titles (no years, no descriptions, no explanations)."
+        suggested_titles = ai_request(ai_selection_prompt)
+        
+        # Clean AI response
+        cleaned_titles = []
+        for title in suggested_titles:
+            title = re.sub(r'\s*[-:(].*$', '', title)  # Remove years, descriptions
+            title = title.strip('"\'')
+            if title and len(title) > 2 and not title.startswith(("It seems", "Here", "From", "Sure", "I'd", "Based")):
+                cleaned_titles.append(title)
+        
+        if cleaned_titles:
+            log(f"AI suggested {len(cleaned_titles)} titles: {cleaned_titles[:10]}")
+            log("")
+            log("STEP 2b: Searching TMDB for AI-suggested movies...")
+            log("-" * 70)
+            
+            # Search TMDB for each AI-suggested title
+            seen_ids = set()
+            
+            for title in cleaned_titles:
+                try:
+                    search = tmdb.Search()
+                    resp = search.movie(query=title)
+                    results = resp.get("results", [])
+                    
+                    if results:
+                        # Take the first (most relevant) result
+                        movie = results[0]
+                        movie_id = movie.get("id")
+                        
+                        if movie_id not in seen_ids:
+                            rating = movie.get("vote_average") or 0
+                            if rating >= min_rating:
+                                ai_tmdb_results.append(movie)
+                                seen_ids.add(movie_id)
+                                year = movie.get("release_date", "")[:4] if movie.get("release_date") else "????"
+                                log(f"  [+] Found: {movie.get('title')} ({year}) - Rating: {rating}/10")
+                            else:
+                                log(f"  [X] Skipped: {movie.get('title')} (rating {rating} < {min_rating})")
+                    else:
+                        log(f"  [X] Not found on TMDB: {title}")
+                except Exception as e:
+                    log(f"  [X] Error searching for '{title}': {e}")
+            
+            if ai_tmdb_results:
+                # Combine with keyword results (keyword results as backup)
+                log(f"\n[-] Found {len(ai_tmdb_results)} AI-suggested movies on TMDB")
+                log(f"[-] Also keeping {len(tmdb_candidates)} keyword-based results as backup")
+                
+                # Prioritize AI results by putting them first
+                combined_candidates = ai_tmdb_results + [
+                    m for m in tmdb_candidates 
+                    if m.get("id") not in seen_ids
+                ]
+                tmdb_candidates = combined_candidates
+                log(f"[-] Total candidate pool: {len(tmdb_candidates)} movies")
+            else:
+                log("[X] No AI-suggested movies found on TMDB, using keyword results only")
+        log("")
+    else:
+        log("STEP 2: Skipping AI curation (no prompt provided)")
+        log("-" * 70)
+        log("")
+
+    # Plex Matching
+    log("STEP 3: Matching to Plex library...")
+    log("-" * 70)
+    movies_library = plex.library.section("Movies")
     
-    log(f"[DEBUG] AI selected {len(cleaned_selected_titles)} titles: {cleaned_selected_titles[:10]}")
-
-    # Filter TMDB candidates to only AI-selected ones (using normalized matching)
-    if cleaned_selected_titles:
-        normalized_selected = {normalize_title(t) for t in cleaned_selected_titles}
-        filtered_candidates = [
-            m for m in tmdb_candidates 
-            if normalize_title(m.get("title", "")) in normalized_selected
-        ]
-        if filtered_candidates:
-            tmdb_candidates = filtered_candidates
-            log(f"[DEBUG] Filtered to {len(tmdb_candidates)} AI-selected candidates")
-        else:
-            log("[DEBUG] No matches after AI filtering, using all TMDB candidates")
-
-    # Plex Matching - find these movies in the user's Plex library
-    matched_movies = find_movies_on_plex(tmdb_candidates, plex, theme_keywords)
+    # Pass count of AI suggestions to help with tracking
+    ai_suggestion_count = len(ai_tmdb_results)
+    
+    matched_movies, ai_count = find_movies_on_plex(tmdb_candidates, plex, theme_keywords, ai_suggestion_count)
+    log("")
     
     if matched_movies:
-        create_or_replace_playlist(playlist_name, matched_movies)
+        log("STEP 4: Creating playlist...")
+        log("-" * 70)
+        create_or_replace_playlist(playlist_name, matched_movies, ai_count)
+        log("")
+        log("=" * 70)
+        log("[+] SUCCESS!")
+        log("=" * 70)
     else:
-        log(f"[WARN] No Plex matches found, skipping playlist '{playlist_name}'")
+        log("=" * 70)
+        log("[X] FAILED: No Plex matches found")
+        log("=" * 70)
+        log("[-] Suggestions:")
+        log("    - Try broader keywords")
+        log("    - Check if these movies exist in your library")
+        log("    - Lower the minimum rating filter")
+
 
 # -------------------------
-# Scheduler
+# Main Entry Point
 # -------------------------
-def run_monthly():
-    if datetime.datetime.now().day == 1:
-        run_curator()
-
-def main():
-    run_curator()
-    schedule.every().day.at("00:30").do(run_monthly)
-    while True:
-        schedule.run_pending()
-        time.sleep(60)
-
 if __name__ == "__main__":
-    main()
+    try:
+        run_curator()
+    except KeyboardInterrupt:
+        log("\n[X] Interrupted by user")
+    except Exception as e:
+        log(f"\n[X] Fatal error: {e}")
+        import traceback
+        traceback.print_exc()

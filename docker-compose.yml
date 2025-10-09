@@ -3,12 +3,33 @@ services:
     build: .
     container_name: plex-curator
     restart: unless-stopped
-    network_mode: "bridge"  
+    network_mode: "bridge"
     env_file:
-      - ./data/.env.example
+      - ./data/.env
     volumes:
       - ./themes:/opt/plex-curator/themes
       - ./data:/opt/plex-curator/data
       - ./plex-curator.py:/opt/plex-curator/plex-curator.py
-      - ./Dockerfile:/opt/plex-curator/Dockerfile
-    command: ["python3", "/opt/plex-curator/plex-curator.py"]
+    # Run on startup and schedule monthly runs
+    entrypoint: /bin/sh
+    command: 
+      - -c
+      - |
+        # Install cron
+        apt-get update && apt-get install -y cron
+        
+        # Run immediately on startup
+        echo "Running curator on startup..."
+        python3 /opt/plex-curator/plex-curator.py
+        
+        # Setup cron job for 1st of each month at 00:30
+        echo "30 0 1 * * cd /opt/plex-curator && python3 /opt/plex-curator/plex-curator.py >> /var/log/plex-curator.log 2>&1" > /etc/cron.d/plex-curator
+        chmod 0644 /etc/cron.d/plex-curator
+        crontab /etc/cron.d/plex-curator
+        
+        # Create log file
+        touch /var/log/plex-curator.log
+        
+        # Start cron in foreground and tail logs
+        echo "Cron job scheduled. Next run: 1st of next month at 00:30"
+        cron && tail -f /var/log/plex-curator.log
