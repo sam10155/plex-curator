@@ -1,0 +1,14 @@
+services:
+  plex-curator:
+    build: .
+    container_name: plex-curator
+    restart: unless-stopped
+    network_mode: "bridge"  
+    env_file:
+      - ./data/.env.example
+    volumes:
+      - ./themes:/opt/plex-curator/themes
+      - ./data:/opt/plex-curator/data
+      - ./plex-curator.py:/opt/plex-curator/plex-curator.py
+      - ./Dockerfile:/opt/plex-curator/Dockerfile
+    command: ["python3", "/opt/plex-curator/plex-curator.py"]

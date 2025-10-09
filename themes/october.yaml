@@ -1,0 +1,12 @@
+playlist_name: "Spooky October"
+prompt: |
+  You are an AI Plex curator. From the media list below, select titles suitable for Halloween:
+  - spooky, supernatural, mysterious, or horror themes
+  - prioritize pre-2000 classics
+  - include highly rated or cult favorites
+
+  Return your answer **only** as a valid JSON array of movie titles with release year, like:
+  ["Movie 1 (2000)", "Movie 2 (1999)", "Movie 3 (1984)", "Movie 4 (2024)"]
+filters:
+  min_rating: 6.0
+
