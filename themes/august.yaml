@@ -1,0 +1,11 @@
+playlist_name: "End of Summer Classics"
+prompt: |
+  You are an AI Plex curator. Select nostalgic classics and timeless favorites:
+  - iconic films everyone should see
+  - critically acclaimed masterpieces
+  - films from the 70s, 80s, and 90s
+  - movies that defined cinema history
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["The Godfather", "Pulp Fiction", "Back to the Future", "Blade Runner", "E.T."]
+filters:
+  min_rating: 7.0

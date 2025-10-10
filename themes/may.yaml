@@ -1,0 +1,11 @@
+playlist_name: "May Blockbusters"
+prompt: |
+  You are an AI Plex curator. Select exciting summer blockbusters and action films:
+  - action-packed adventures, superhero films, thrillers
+  - big-budget spectacles with amazing visuals
+  - crowd-pleasers and popcorn movies
+  - mix of franchises and standalone hits
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Mad Max: Fury Road", "The Dark Knight", "Raiders of the Lost Ark", "Mission: Impossible"]
+filters:
+  min_rating: 6.5

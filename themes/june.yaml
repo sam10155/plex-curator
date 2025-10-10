@@ -1,0 +1,11 @@
+playlist_name: "Summer Vibes"
+prompt: |
+  You are an AI Plex curator. Select films perfect for summer:
+  - beach settings, tropical locations, summer camps
+  - light-hearted, fun, feel-good movies
+  - teen comedies and summer romance
+  - vacation and travel themed films
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Jaws", "The Sandlot", "Dirty Dancing", "Mamma Mia!", "Grease"]
+filters:
+  min_rating: 6.0

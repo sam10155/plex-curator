@@ -1,0 +1,11 @@
+playlist_name: "April Laughs"
+prompt: |
+  You are an AI Plex curator. Select the best comedy films:
+  - classic comedies, satires, and laugh-out-loud funny movies
+  - mix of slapstick, witty dialogue, and clever humor
+  - both timeless classics and modern favorites
+  - highly rated comedies that stand the test of time
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Airplane!", "Groundhog Day", "The Big Lebowski", "Superbad"]
+filters:
+  min_rating: 6.5

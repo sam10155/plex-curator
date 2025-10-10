@@ -1,0 +1,11 @@
+playlist_name: "Holiday Classics"
+prompt: |
+  You are an AI Plex curator. Select Christmas and winter holiday films:
+  - Christmas classics, both old and new
+  - winter wonderland settings
+  - heartwarming holiday stories and comedies
+  - must-watch films for the holiday season
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["It's a Wonderful Life", "Elf", "Die Hard", "Home Alone", "The Polar Express"]
+filters:
+  min_rating: 6.0

@@ -1,0 +1,11 @@
+playlist_name: "Love & Romance"
+prompt: |
+  You are an AI Plex curator. Select titles perfect for Valentine's Day and romance:
+  - romantic comedies, love stories, relationship dramas
+  - both classic romances and modern love stories
+  - include some unconventional romances or heartbreakers
+  - highly rated or beloved romantic films
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Casablanca", "When Harry Met Sally", "The Notebook", "Eternal Sunshine of the Spotless Mind"]
+filters:
+  min_rating: 6.0

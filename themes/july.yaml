@@ -1,0 +1,11 @@
+playlist_name: "Independence & Freedom"
+prompt: |
+  You are an AI Plex curator. Select patriotic and freedom-themed films:
+  - American history, military, and patriotic themes
+  - stories of freedom, revolution, and independence
+  - war films and historical dramas
+  - inspiring tales of courage and sacrifice
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Saving Private Ryan", "Independence Day", "Forrest Gump", "Apollo 13", "1776"]
+filters:
+  min_rating: 6.5

@@ -1,0 +1,11 @@
+playlist_name: "Spring Awakening"
+prompt: |
+  You are an AI Plex curator. Select titles celebrating renewal and adventure:
+  - coming-of-age stories, adventures, road trips
+  - themes of growth, change, and new beginnings
+  - uplifting or energetic films
+  - spring or outdoor settings preferred
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Stand By Me", "The Secret Life of Walter Mitty", "Into the Wild", "Little Miss Sunshine"]
+filters:
+  min_rating: 6.5

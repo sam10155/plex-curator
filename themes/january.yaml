@@ -1,0 +1,11 @@
+playlist_name: "New Year, New Movies"
+prompt: |
+  You are an AI Plex curator. Select titles perfect for starting the year fresh:
+  - inspirational stories, fresh starts, self-improvement themes
+  - winter settings or cozy indoor atmospheres
+  - highly rated dramas and feel-good movies
+  - mix of classic and modern films
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["The Shawshank Redemption", "Rocky", "Good Will Hunting", "The Pursuit of Happyness"]
+filters:
+  min_rating: 6.5

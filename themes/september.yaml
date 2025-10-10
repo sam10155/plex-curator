@@ -1,0 +1,11 @@
+playlist_name: "Back to School"
+prompt: |
+  You are an AI Plex curator. Select films about school, college, and education:
+  - high school and college settings
+  - coming-of-age school stories
+  - teacher-student relationships and educational themes
+  - campus comedies and dramas
+  Return your answer **only** as a valid JSON array of movie titles, like:
+  ["Dead Poets Society", "The Breakfast Club", "Good Will Hunting", "Animal House"]
+filters:
+  min_rating: 6.5
