@@ -332,28 +332,26 @@ def create_or_replace_collection(plex, name, items, ai_count):
                 break
         
         if collection:
-            # Edit collection settings
             try:
-                # Set sort title to appear first
                 collection.editSortTitle(f"!{name}")
                 
-                # Try to promote to home - this may not work via API
-                # Users may need to manually promote in Plex UI
-                collection.edit(**{
-                    'promotedToRecommended.value': 1,
-                    'promotedToOwnHome.value': 1,
-                    'promotedToSharedHome.value': 1
-                })
+                visibility_hub = collection.visibility()
+                visibility_hub.promoteHome()
+                visibility_hub.promoteShared()
                 
                 log(f"[+] Collection '{name}' created successfully!")
                 log(f"    - Total movies: {len(items)}")
                 log(f"    - AI-curated: {ai_count}")
                 log(f"    - Keyword-matched: {len(items) - ai_count}")
-                log(f"    - Sort title set to: !{name} (appears first in library)")
-                log(f"    - Attempted to promote to home (may need manual verification)")
+                log(f"    - Sort title: !{name}")
+                log(f"    - Promoted to home screen")
             except Exception as e:
-                log(f"[-] Collection created but couldn't set all preferences: {e}")
-                log(f"    You may need to manually promote it in Plex settings")
+                log(f"[+] Collection '{name}' created successfully!")
+                log(f"    - Total movies: {len(items)}")
+                log(f"    - AI-curated: {ai_count}")
+                log(f"    - Keyword-matched: {len(items) - ai_count}")
+                log(f"[-] Could not set all preferences: {e}")
+                log(f"[-] Manually promote to home in Plex if desired")
             
             return collection
         else:
