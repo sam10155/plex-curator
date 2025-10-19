@@ -7,7 +7,6 @@ import unicodedata
 import requests
 from difflib import SequenceMatcher
 from plexapi.server import PlexServer
-from plexapi.playlist import Playlist
 import tmdbsimple as tmdb
 import re
 
@@ -26,7 +25,7 @@ AI_API_URL = os.getenv("AI_API_URL")
 
 MAX_TMBD_CANDIDATES = 1000
 MAX_AI_SELECTION = 50
-MAX_PLAYLIST_ITEMS = 15
+MAX_COLLECTION_ITEMS = 15
 
 # -------------------------
 # Utilities
@@ -174,14 +173,14 @@ def ai_request(prompt):
         return []
 
 
-def generate_keywords_from_name(playlist_name):
+def generate_keywords_from_name(collection_name):
     """
-    Generate a theme-agnostic list of keywords from the playlist name.
+    Generate a theme-agnostic list of keywords from the collection name.
     """
-    prompt = f"Generate 7 concise keywords describing the theme/genre of a movie playlist named: '{playlist_name}'. Return strictly as a JSON list of words."
+    prompt = f"Generate 7 concise keywords describing the theme/genre of a movie collection named: '{collection_name}'. Return strictly as a JSON list of words."
     keywords = ai_request(prompt)
     if not keywords:
-        keywords = list(set(re.findall(r'\w+', playlist_name.lower())))
+        keywords = list(set(re.findall(r'\w+', collection_name.lower())))
     return keywords
 
 
@@ -234,13 +233,13 @@ def find_movies_on_plex(tmdb_movies, plex, keywords, ai_count_hint=0):
                     log(f"[DEBUG] AI Match: {plex_movie.title}")
                 else:
                     log(f"[DEBUG] Keyword Match: {plex_movie.title}")
-        if len(matched) >= MAX_PLAYLIST_ITEMS:
+        if len(matched) >= MAX_COLLECTION_ITEMS:
             break
 
     # Second pass: keyword-based fallback if needed
-    if len(matched) < MAX_PLAYLIST_ITEMS:
+    if len(matched) < MAX_COLLECTION_ITEMS:
         log(f"[DEBUG] Found {ai_matched_count} AI matches and {len(matched) - ai_matched_count} keyword matches")
-        log(f"[DEBUG] Need {MAX_PLAYLIST_ITEMS - len(matched)} more movies, using ranked keyword fallback...")
+        log(f"[DEBUG] Need {MAX_COLLECTION_ITEMS - len(matched)} more movies, using ranked keyword fallback...")
         scored = []
 
         for movie in plex_movies:
@@ -274,45 +273,94 @@ def find_movies_on_plex(tmdb_movies, plex, keywords, ai_count_hint=0):
             if movie not in matched:
                 matched.append(movie)
                 log(f"[DEBUG] Keyword Match (score: {score:.1f}): {movie.title}")
-            if len(matched) >= MAX_PLAYLIST_ITEMS:
+            if len(matched) >= MAX_COLLECTION_ITEMS:
                 break
 
     matched = [m for m in matched if hasattr(m, "ratingKey")]
-    log(f"Final playlist: {ai_matched_count}/{len(matched)} movies from AI selection, {len(matched) - ai_matched_count} from keyword fallback")
+    log(f"Final collection: {ai_matched_count}/{len(matched)} movies from AI selection, {len(matched) - ai_matched_count} from keyword fallback")
     log(f"Movies: {[m.title for m in matched]}")
     
-    return matched[:MAX_PLAYLIST_ITEMS], ai_matched_count
+    return matched[:MAX_COLLECTION_ITEMS], ai_matched_count
 
 
 # -------------------------
-# Playlist Creation
+# Collection Creation
 # -------------------------
-def create_or_replace_playlist(name, items, ai_count):
+def create_or_replace_collection(plex, name, items, ai_count):
     # Validate items
     items = [i for i in items if hasattr(i, "ratingKey") and getattr(i, "ratingKey")]
     if not items:
-        log(f"[WARN] No valid Plex items to add for playlist '{name}', skipping creation")
+        log(f"[X] No valid Plex items to add for collection '{name}', skipping creation")
         return
     
-    log(f"[DEBUG] Creating playlist with {len(items)} items ({ai_count} from AI, {len(items) - ai_count} from keywords)")
+    log(f"[-] Creating collection with {len(items)} items ({ai_count} from AI, {len(items) - ai_count} from keywords)")
 
-    # Delete old playlist if exists
-    for pl in plex.playlists():
-        if pl.title == name:
-            log(f"Deleting old playlist: {name}")
-            pl.delete()
-            break
-
-    # Create new playlist
+    # Get the Movies library section
     try:
-        playlist = plex.createPlaylist(title=name, items=items)
-        log(f"[+] Playlist '{name}' created successfully!")
-        log(f"    - Total movies: {len(items)}")
-        log(f"    - AI-curated: {ai_count}")
-        log(f"    - Keyword-matched: {len(items) - ai_count}")
-        return playlist
+        movies_section = plex.library.section("Movies")
     except Exception as e:
-        log(f"[X] Failed to create playlist: {e}")
+        log(f"[X] Failed to get Movies library: {e}")
+        raise
+
+    # Check if collection already exists and delete it
+    try:
+        existing_collections = movies_section.collections()
+        for collection in existing_collections:
+            if collection.title == name:
+                log(f"[-] Deleting existing collection: {name}")
+                collection.delete()
+                break
+    except Exception as e:
+        log(f"[X] Error checking existing collections: {e}")
+
+    # Create new collection
+    try:
+        # Create collection by editing the first item
+        first_item = items[0]
+        first_item.addCollection(name)
+        
+        # Add remaining items to the collection
+        for item in items[1:]:
+            item.addCollection(name)
+        
+        # Get the newly created collection to configure it
+        movies_section.reload()
+        collection = None
+        for coll in movies_section.collections():
+            if coll.title == name:
+                collection = coll
+                break
+        
+        if collection:
+            # Edit collection settings
+            try:
+                # Set sort title to appear first
+                collection.editSortTitle(f"!{name}")
+                
+                # Try to promote to home - this may not work via API
+                # Users may need to manually promote in Plex UI
+                collection.edit(**{
+                    'promotedToRecommended.value': 1,
+                    'promotedToOwnHome.value': 1,
+                    'promotedToSharedHome.value': 1
+                })
+                
+                log(f"[+] Collection '{name}' created successfully!")
+                log(f"    - Total movies: {len(items)}")
+                log(f"    - AI-curated: {ai_count}")
+                log(f"    - Keyword-matched: {len(items) - ai_count}")
+                log(f"    - Sort title set to: !{name} (appears first in library)")
+                log(f"    - Attempted to promote to home (may need manual verification)")
+            except Exception as e:
+                log(f"[-] Collection created but couldn't set all preferences: {e}")
+                log(f"    You may need to manually promote it in Plex settings")
+            
+            return collection
+        else:
+            log(f"[X] Collection created but couldn't retrieve it for configuration")
+            
+    except Exception as e:
+        log(f"[X] Failed to create collection: {e}")
         raise
 
 
@@ -335,11 +383,12 @@ def run_curator():
     with open(theme_file, "r") as f:
         theme_cfg = yaml.safe_load(f)
 
-    playlist_name = theme_cfg.get("playlist_name", f"{month_name.title()} Picks")
+    # Get collection name from YAML (field is still called "playlist_name" for compatibility)
+    collection_name = theme_cfg.get("playlist_name", f"{month_name.title()} Picks")
     month_prompt = theme_cfg.get("prompt", "")
     min_rating = theme_cfg.get("filters", {}).get("min_rating", 0)
 
-    log(f"[-] Playlist Name: {playlist_name}")
+    log(f"[-] Collection Name: {collection_name}")
     log(f"[-] Month: {month_name.title()}")
     if min_rating > 0:
         log(f"[-] Minimum Rating: {min_rating}/10")
@@ -347,11 +396,11 @@ def run_curator():
     # Get or generate keywords
     theme_keywords = theme_cfg.get("keywords", None)
     if not theme_keywords:
-        log(f"[-] No keywords in YAML, generating from playlist name...")
-        theme_keywords = generate_keywords_from_name(playlist_name)
+        log(f"[-] No keywords in YAML, generating from collection name...")
+        theme_keywords = generate_keywords_from_name(collection_name)
     
     if not theme_keywords:
-        log("[X] No theme keywords generated, skipping playlist creation")
+        log("[X] No theme keywords generated, skipping collection creation")
         return
 
     theme_keywords = clean_keywords(theme_keywords)
@@ -453,9 +502,9 @@ def run_curator():
     log("")
     
     if matched_movies:
-        log("STEP 4: Creating playlist...")
+        log("STEP 4: Creating collection...")
         log("-" * 70)
-        create_or_replace_playlist(playlist_name, matched_movies, ai_count)
+        create_or_replace_collection(plex, collection_name, matched_movies, ai_count)
         log("")
         log("=" * 70)
         log("[+] SUCCESS!")
