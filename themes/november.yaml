@@ -1,0 +1,13 @@
+playlist_name: "November Movies"
+keywords:
+  - autumn
+  - november
+  - cozy
+  - fall
+filters:
+  min_rating: 6.5
+prompt: |
+  Suggest movies that feel like November or autumn:
+  - Moody, cozy, and introspective films
+  - Set in fall or with seasonal themes
+  - Family or drama movies that fit the November vibe
