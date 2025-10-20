@@ -24,7 +24,7 @@ class PlexLibraryCache:
 def connect():
     return PlexServer(config.PLEX_URL, config.PLEX_TOKEN)
 
-def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0):
+def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0, collection_size=15):
     plex_movies = plex_cache.get_movies()
     plex_map = plex_cache.get_normalized_map()
     
@@ -44,12 +44,12 @@ def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0):
                     log(f"    [+] AI Match: {plex_movie.title}")
                 else:
                     log(f"    [+] Keyword Match: {plex_movie.title}")
-        if len(matched) >= config.MAX_COLLECTION_ITEMS:
+        if len(matched) >= collection_size:
             break
 
-    if len(matched) < config.MAX_COLLECTION_ITEMS:
+    if len(matched) < collection_size:
         log(f"[-] Found {ai_matched_count} AI matches, {len(matched) - ai_matched_count} keyword matches")
-        log(f"[-] Need {config.MAX_COLLECTION_ITEMS - len(matched)} more, using keyword fallback...")
+        log(f"[-] Need {collection_size - len(matched)} more, using keyword fallback...")
         
         scored = []
         for movie in plex_movies:
@@ -80,13 +80,13 @@ def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0):
             if movie not in matched:
                 matched.append(movie)
                 log(f"    [+] Keyword Match (score: {score:.1f}): {movie.title}")
-            if len(matched) >= config.MAX_COLLECTION_ITEMS:
+            if len(matched) >= collection_size:
                 break
 
     matched = [m for m in matched if hasattr(m, "ratingKey")]
     log(f"[-] Final: {ai_matched_count}/{len(matched)} from AI, {len(matched) - ai_matched_count} from keywords")
     
-    return matched[:config.MAX_COLLECTION_ITEMS], ai_matched_count
+    return matched[:collection_size], ai_matched_count
 
 def create_collection(plex, name, items, ai_count):
     items = [i for i in items if hasattr(i, "ratingKey") and getattr(i, "ratingKey")]
