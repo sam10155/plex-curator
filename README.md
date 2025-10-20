@@ -184,13 +184,6 @@ TMDB_PARALLEL_REQUESTS = 10      # Concurrent TMDB requests
 5. **Plex Matching**: Match TMDB results to your Plex library
 6. **Collection Creation**: Create collection in Plex, promote to home
 
-## Performance
-
-- **Runtime**: ~25-30 seconds (vs 43s original)
-- **Parallel TMDB**: 10 concurrent requests (93% faster)
-- **Plex Caching**: Library loaded once per run
-- **AI Optimization**: Shorter prompts, reduced token generation
-
 ## Troubleshooting
 
 ### Web UI not accessible
