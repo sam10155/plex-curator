@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('new_curation') }}" class="btn">+ New Curation</a>
+</div>
+
+<div class="card">
+    <h2>Curations</h2>
+    
+    {% if curations %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Collection Name</th>
+                <th>Keywords</th>
+                <th>AI</th>
+                <th>Min Rating</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in curations %}
+            <tr>
+                <td><strong>{{ c.name }}</strong></td>
+                <td>{{ c.collection_name }}</td>
+                <td>
+                    {% if c.keywords %}
+                        {{ c.keywords[:3]|join(', ') }}{% if c.keywords|length > 3 %}...{% endif %}
+                    {% else %}
+                        <span style="color: #999;">Auto-generate</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if c.has_prompt %}
+                        <span class="badge badge-success">Enabled</span>
+                    {% else %}
+                        <span class="badge badge-warning">Disabled</span>
+                    {% endif %}
+                </td>
+                <td>{{ c.min_rating }}/10</td>
+                <td>
+                    <div class="actions">
+                        <a href="{{ url_for('edit_curation', filename=c.filename) }}" class="btn btn-small btn-secondary">Edit</a>
+                        <form method="POST" action="{{ url_for('run_curation_now', filename=c.filename) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-small" onclick="return confirm('Run this curation now?')">Run Now</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('delete_curation', filename=c.filename) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-small btn-danger" onclick="return confirm('Delete this curation?')">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #999;">No curations yet. Create your first one!</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Schedule</h2>
+    <p class="help-text">Configure cron schedules for automatic curation runs</p>
+    
+    <table>
+        <thead>
+            <tr>
+                <th>Curation</th>
+                <th>Cron Schedule</th>
+                <th>Description</th>
+                <th>Enabled</th>
+            </tr>
+        </thead>
+        <tbody id="schedule-table">
+            {% for c in curations %}
+            <tr>
+                <td>{{ c.name }}</td>
+                <td>
+                    <input type="text" 
+                           class="schedule-input" 
+                           data-filename="{{ c.filename }}"
+                           value="{{ cron_schedule.get(c.filename, {}).get('cron', '0 0 1 * *') }}"
+                           placeholder="0 0 1 * *">
+                </td>
+                <td>
+                    <input type="text" 
+                           class="description-input"
+                           data-filename="{{ c.filename }}"
+                           value="{{ cron_schedule.get(c.filename, {}).get('description', 'Monthly') }}"
+                           placeholder="Monthly">
+                </td>
+                <td>
+                    <input type="checkbox" 
+                           class="schedule-enabled"
+                           data-filename="{{ c.filename }}"
+                           {% if c.filename in cron_schedule %}checked{% endif %}>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    
+    <div style="margin-top: 15px;">
+        <button onclick="saveSchedule()" class="btn">Save Schedule</button>
+        <span class="help-text">Common: Daily (0 0 * * *), Weekly (0 0 * * 0), Monthly (0 0 1 * *)</span>
+    </div>
+</div>
+
+<script>
+function saveSchedule() {
+    const schedules = {};
+    document.querySelectorAll('.schedule-input').forEach(input => {
+        const filename = input.dataset.filename;
+        const cron = input.value;
+        const description = document.querySelector(`.description-input[data-filename="${filename}"]`).value;
+        const enabled = document.querySelector(`.schedule-enabled[data-filename="${filename}"]`).checked;
+        
+        schedules[filename] = {
+            cron: cron,
+            description: description,
+            enabled: enabled
+        };
+    });
+    
+    fetch('/schedule/save', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(schedules)
+    }).then(response => response.json())
+      .then(data => {
+          if (data.status === 'success') {
+              alert('Schedule saved successfully!');
+              location.reload();
+          }
+      });
+}
+</script>
+{% endblock %}

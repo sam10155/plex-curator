@@ -1,35 +1,41 @@
 #!/usr/bin/env python3
 import os
 import yaml
-import datetime
+import json
 import config
 from core.utils import log, clean_keywords
 from core.ai import generate_keywords, suggest_movies
 from core.tmdb import search_by_keywords, search_movies_parallel
 from core.plex import connect, PlexLibraryCache, find_movies, create_collection
 
-def run_curator():
-    log("=" * 70)
-    log("PLEX CURATOR STARTED")
-    log("=" * 70)
+CRON_FILE = os.path.join(config.DATA_DIR, "cron_schedule.json")
 
-    month_name = datetime.datetime.now().strftime("%B").lower()
-    theme_file = os.path.join(config.THEMES_DIR, f"{month_name}.yaml")
-    
+def load_cron_schedule():
+    if os.path.exists(CRON_FILE):
+        with open(CRON_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def run_curation(theme_file):
+    """Run a single curation job"""
     if not os.path.exists(theme_file):
-        log(f"[X] No theme file found for {month_name}")
-        log(f"    Expected: {theme_file}")
-        return
+        log(f"[X] Theme file not found: {theme_file}")
+        return False
+
+    curation_name = os.path.basename(theme_file).replace('.yaml', '')
+    
+    log("=" * 70)
+    log(f"RUNNING CURATION: {curation_name}")
+    log("=" * 70)
 
     with open(theme_file, "r") as f:
-        theme_cfg = yaml.safe_load(f)
+        theme_cfg = yaml.safe_load(f) or {}
 
-    collection_name = theme_cfg.get("playlist_name", f"{month_name.title()} Picks")
+    collection_name = theme_cfg.get("playlist_name", curation_name.title())
     month_prompt = theme_cfg.get("prompt", "")
     min_rating = theme_cfg.get("filters", {}).get("min_rating", 0)
 
     log(f"[-] Collection Name: {collection_name}")
-    log(f"[-] Month: {month_name.title()}")
     if min_rating > 0:
         log(f"[-] Minimum Rating: {min_rating}/10")
 
@@ -40,7 +46,7 @@ def run_curator():
     
     if not theme_keywords:
         log("[X] No theme keywords generated")
-        return
+        return False
 
     theme_keywords = clean_keywords(theme_keywords)
     log(f"[-] Theme Keywords: {', '.join(theme_keywords)}")
@@ -52,7 +58,7 @@ def run_curator():
     
     if not tmdb_candidates:
         log("[X] No TMDB candidates found")
-        return
+        return False
     log("")
 
     ai_tmdb_results = []
@@ -108,15 +114,61 @@ def run_curator():
         log("=" * 70)
         log("[+] SUCCESS!")
         log("=" * 70)
+        return True
     else:
         log("=" * 70)
         log("[X] FAILED: No Plex matches found")
         log("=" * 70)
+        return False
+
+def run_all_scheduled():
+    """Run all curations that are scheduled"""
+    log("=" * 70)
+    log("PLEX CURATOR - SCHEDULED RUN")
+    log("=" * 70)
+    
+    schedule = load_cron_schedule()
+    
+    if not schedule:
+        log("[-] No scheduled curations found")
+        return
+    
+    log(f"[-] Found {len(schedule)} scheduled curation(s)")
+    log("")
+    
+    results = []
+    for filename, config_data in schedule.items():
+        theme_file = os.path.join(config.THEMES_DIR, filename)
+        success = run_curation(theme_file)
+        results.append((filename, success))
+        log("")
+    
+    log("=" * 70)
+    log("SCHEDULED RUN SUMMARY")
+    log("=" * 70)
+    for filename, success in results:
+        status = "[+] SUCCESS" if success else "[X] FAILED"
+        log(f"{status}: {filename}")
+
+def run_single_curation(curation_name):
+    """Run a specific curation by name (for web UI)"""
+    theme_file = os.path.join(config.THEMES_DIR, f"{curation_name}.yaml")
+    return run_curation(theme_file)
 
 if __name__ == "__main__":
+    import sys
+    
     try:
         os.makedirs(config.DATA_DIR, exist_ok=True)
-        run_curator()
+        
+        if len(sys.argv) > 1:
+            # Run specific curation: python curator.py october
+            curation_name = sys.argv[1]
+            run_single_curation(curation_name)
+        else:
+            # Run all scheduled curations (called by cron)
+            run_all_scheduled()
+            
     except KeyboardInterrupt:
         log("\n[X] Interrupted by user")
     except Exception as e:

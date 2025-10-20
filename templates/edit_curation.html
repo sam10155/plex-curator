@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+
+{% block title %}{% if curation %}Edit{% else %}New{% endif %} Curation{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="card">
+    <h2>{% if curation %}Edit{% else %}Create New{% endif %} Curation</h2>
+    
+    <form method="POST" action="{{ url_for('save_curation') }}">
+        <div class="form-group">
+            <label for="name">File Name *</label>
+            <input type="text" 
+                   id="name" 
+                   name="name" 
+                   value="{{ curation.name if curation else '' }}"
+                   {% if curation %}readonly{% endif %}
+                   required>
+            <p class="help-text">Use month names (january, february, etc.) or custom names. No spaces.</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="collection_name">Collection Name *</label>
+            <input type="text" 
+                   id="collection_name" 
+                   name="collection_name" 
+                   value="{{ curation.collection_name if curation else '' }}"
+                   placeholder="Spooky October"
+                   required>
+            <p class="help-text">The name that will appear in Plex</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="keywords">Keywords</label>
+            <input type="text" 
+                   id="keywords" 
+                   name="keywords" 
+                   value="{{ curation.keywords if curation else '' }}"
+                   placeholder="Horror, Thriller, Mystery, Supernatural">
+            <p class="help-text">Comma-separated. Leave empty to auto-generate from collection name.</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="min_rating">Minimum TMDB Rating</label>
+            <input type="number" 
+                   id="min_rating" 
+                   name="min_rating" 
+                   value="{{ curation.min_rating if curation else '6.0' }}"
+                   min="0" 
+                   max="10" 
+                   step="0.1">
+            <p class="help-text">Only include movies with this rating or higher (0-10)</p>
+        </div>
+        
+        <div class="form-group">
+            <input type="checkbox" 
+                   id="use_ai" 
+                   name="use_ai"
+                   {% if not curation or curation.use_ai %}checked{% endif %}
+                   onchange="togglePrompt()">
+            <label for="use_ai" class="checkbox-label">Use AI Curation</label>
+            <p class="help-text">When enabled, AI will suggest movies. When disabled, uses only TMDB keyword search.</p>
+        </div>
+        
+        <div class="form-group" id="prompt-group">
+            <label for="prompt">AI Prompt</label>
+            <textarea id="prompt" 
+                      name="prompt" 
+                      placeholder="You are an AI Plex curator. Select titles suitable for Halloween...">{{ curation.prompt if curation else '' }}</textarea>
+            <p class="help-text">Instructions for the AI on what kind of movies to select</p>
+        </div>
+        
+        <div style="display: flex; gap: 10px;">
+            <button type="submit" class="btn">Save Curation</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+function togglePrompt() {
+    const useAi = document.getElementById('use_ai').checked;
+    const promptGroup = document.getElementById('prompt-group');
+    promptGroup.style.display = useAi ? 'block' : 'none';
+}
+
+// Initialize on load
+togglePrompt();
+</script>
+{% endblock %}

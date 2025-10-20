@@ -3,30 +3,30 @@ services:
     build: .
     container_name: plex-curator
     restart: unless-stopped
-    network_mode: "bridge"
+    network_mode: bridge
+    ports:
+      - "5000:5000"
     env_file:
       - ./data/.env
     volumes:
       - ./themes:/opt/plex-curator/themes
       - ./data:/opt/plex-curator/data
-      - ./config.py:/opt/plex-curator/config.py
-      - ./curator.py:/opt/plex-curator/curator.py
-      - ./halloween_tv.py:/opt/plex-curator/halloween_tv.py
-      - ./core:/opt/plex-curator/core
-    entrypoint: /bin/sh
-    command: 
+      - ./templates:/opt/plex-curator/templates
+      - ./src:/opt/plex-curator/src
+    command:
+      - bash
       - -c
       - |
-        apt-get update && apt-get install -y cron
-        
-        echo "Running curator on startup..."
-        python3 /opt/plex-curator/curator.py
-        
-        echo "30 0 1 * * cd /opt/plex-curator && python3 /opt/plex-curator/curator.py >> /var/log/plex-curator.log 2>&1" > /etc/cron.d/plex-curator
-        chmod 0644 /etc/cron.d/plex-curator
-        crontab /etc/cron.d/plex-curator
-        
+        echo "Setting up cron job..."
+        echo "0 0 1 * * cd /opt/plex-curator && python3 -m src.monthly >> /var/log/plex-curator-monthly.log 2>&1" > /etc/cron.d/plex-curator-monthly
+        chmod 0644 /etc/cron.d/plex-curator-monthly
+        crontab /etc/cron.d/plex-curator-monthly
+
         touch /var/log/plex-curator.log
-        
-        echo "Cron job scheduled. Next run: 1st of next month at 00:30"
-        cron && tail -f /var/log/plex-curator.log
+        touch /var/log/plex-curator-monthly.log
+
+        echo "Starting cron daemon..."
+        service cron start
+
+        echo "Starting Flask web UI on port 5000..."
+        python3 -m src.webui
