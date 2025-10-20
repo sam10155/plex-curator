@@ -266,4 +266,4 @@ Feel free to extend the system:
 
 ## License
 
-MIT License - Use freely!
+MIT License – See [LICENSE](LICENSE) file for details.
