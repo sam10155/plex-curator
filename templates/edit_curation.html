@@ -34,6 +34,18 @@
         </div>
         
         <div class="form-group">
+            <label for="max_items">Max Collection Size</label>
+            <input type="number" 
+                   id="max_items" 
+                   name="max_items" 
+                   value="{{ curation.max_items if curation else '100' }}"
+                   min="5" 
+                   max="500" 
+                   step="5">
+            <p class="help-text">Maximum number of movies in this collection (5-500, default: 100)</p>
+        </div>
+        
+        <div class="form-group">
             <label for="keywords">Keywords</label>
             <input type="text" 
                    id="keywords" 

@@ -34,6 +34,7 @@ def get_all_curations():
                         'collection_name': data.get('playlist_name', 'N/A'),
                         'keywords': data.get('keywords', []),
                         'min_rating': data.get('filters', {}).get('min_rating', 0),
+                        'max_items': data.get('max_items', config.DEFAULT_COLLECTION_SIZE),
                         'has_prompt': bool(data.get('prompt', '').strip())
                     })
     return sorted(curations, key=lambda x: x['name'])
@@ -65,6 +66,7 @@ def edit_curation(filename):
         'keywords': ', '.join(data.get('keywords', [])),
         'prompt': data.get('prompt', ''),
         'min_rating': data.get('filters', {}).get('min_rating', 6.0),
+        'max_items': data.get('max_items', config.DEFAULT_COLLECTION_SIZE),
         'use_ai': bool(data.get('prompt', '').strip())
     }
     
@@ -77,6 +79,7 @@ def save_curation():
     keywords_str = request.form.get('keywords', '').strip()
     prompt = request.form.get('prompt', '').strip()
     min_rating = float(request.form.get('min_rating', 6.0))
+    max_items = int(request.form.get('max_items', config.DEFAULT_COLLECTION_SIZE))
     use_ai = request.form.get('use_ai') == 'on'
     
     if not name or not collection_name:
@@ -87,6 +90,7 @@ def save_curation():
     
     data = {
         'playlist_name': collection_name,
+        'max_items': max_items,
         'filters': {
             'min_rating': min_rating
         }
@@ -165,7 +169,8 @@ def get_month_list():
         'july', 'august', 'september', 'october', 'november', 'december'
     ]
 
+os.makedirs(config.DATA_DIR, exist_ok=True)
+os.makedirs(config.THEMES_DIR, exist_ok=True)
+
 if __name__ == '__main__':
-    os.makedirs(config.DATA_DIR, exist_ok=True)
-    os.makedirs(config.THEMES_DIR, exist_ok=True)
     app.run(host='0.0.0.0', port=5000, debug=True)

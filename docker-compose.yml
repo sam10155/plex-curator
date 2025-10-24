@@ -1,6 +1,7 @@
 services:
   plex-curator:
     build: .
+    image: plex-curator
     container_name: plex-curator
     restart: unless-stopped
     network_mode: bridge

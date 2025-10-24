@@ -34,8 +34,10 @@ def run_curation(theme_file):
     collection_name = theme_cfg.get("playlist_name", curation_name.title())
     month_prompt = theme_cfg.get("prompt", "")
     min_rating = theme_cfg.get("filters", {}).get("min_rating", 0)
+    max_items = theme_cfg.get("max_items", config.DEFAULT_COLLECTION_SIZE)
 
     log(f"[-] Collection Name: {collection_name}")
+    log(f"[-] Target Size: {max_items} items")
     if min_rating > 0:
         log(f"[-] Minimum Rating: {min_rating}/10")
 
@@ -54,7 +56,7 @@ def run_curation(theme_file):
 
     log("STEP 1: Searching TMDB for candidate movies...")
     log("-" * 70)
-    tmdb_candidates = search_by_keywords(theme_keywords, max_results=config.MAX_TMBD_CANDIDATES, min_rating=min_rating)
+    tmdb_candidates = search_by_keywords(theme_keywords, max_results=config.MAX_TMDB_CANDIDATES, min_rating=min_rating)
     
     if not tmdb_candidates:
         log("[X] No TMDB candidates found")
@@ -103,7 +105,7 @@ def run_curation(theme_file):
     plex_cache = PlexLibraryCache(plex)
     ai_suggestion_count = len(ai_tmdb_results)
     
-    matched_movies, ai_count = find_movies(tmdb_candidates, plex_cache, theme_keywords, ai_suggestion_count)
+    matched_movies, ai_count = find_movies(tmdb_candidates, plex_cache, theme_keywords, ai_suggestion_count, max_items)
     log("")
     
     if matched_movies:
