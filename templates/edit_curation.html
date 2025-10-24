@@ -11,6 +11,7 @@
     <h2>{% if curation %}Edit{% else %}Create New{% endif %} Curation</h2>
     
     <form method="POST" action="{{ url_for('save_curation') }}">
+        <!-- Basic Settings -->
         <div class="form-group">
             <label for="name">File Name *</label>
             <input type="text" 
@@ -67,6 +68,7 @@
             <p class="help-text">Only include movies with this rating or higher (0-10)</p>
         </div>
         
+        <!-- AI Settings -->
         <div class="form-group">
             <input type="checkbox" 
                    id="use_ai" 
@@ -84,8 +86,193 @@
                       placeholder="You are an AI Plex curator. Select titles suitable for Halloween...">{{ curation.prompt if curation else '' }}</textarea>
             <p class="help-text">Instructions for the AI on what kind of movies to select</p>
         </div>
-        
-        <div style="display: flex; gap: 10px;">
+
+        <!-- Advanced Settings Toggle -->
+        <div style="margin: 30px 0; padding: 20px 0; border-top: 2px solid #444; border-bottom: 2px solid #444;">
+            <div class="form-group">
+                <input type="checkbox" 
+                       id="show_advanced" 
+                       onchange="toggleAdvanced()">
+                <label for="show_advanced" class="checkbox-label" style="font-size: 1.1rem; color: #e5a00d;">⚙️ Advanced Settings</label>
+                <p class="help-text">Additional filters, metadata, and display options</p>
+            </div>
+        </div>
+
+        <!-- Advanced Settings Section -->
+        <div id="advanced-section" style="display: none;">
+            
+            <!-- Collection Metadata -->
+            <h3 style="color: #e5a00d; margin-top: 20px;">Collection Metadata</h3>
+            
+            <div class="form-group">
+                <label for="summary">Summary</label>
+                <textarea id="summary" 
+                          name="summary" 
+                          placeholder="A curated collection of Halloween favorites...">{{ curation.summary if curation else '' }}</textarea>
+                <p class="help-text">Description text shown in Plex</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="sort_title">Sort Title</label>
+                <input type="text" 
+                       id="sort_title" 
+                       name="sort_title" 
+                       value="{{ curation.sort_title if curation else '' }}"
+                       placeholder="!01 October">
+                <p class="help-text">Override default sort (use ! prefix to pin to top)</p>
+            </div>
+
+            <!-- Advanced Filters -->
+            <h3 style="color: #e5a00d; margin-top: 30px;">Advanced Filters</h3>
+            
+            <div class="form-group">
+                <label for="max_rating">Maximum TMDB Rating</label>
+                <input type="number" 
+                       id="max_rating" 
+                       name="max_rating" 
+                       value="{{ curation.max_rating if curation else '' }}"
+                       min="0" 
+                       max="10" 
+                       step="0.1"
+                       placeholder="10.0">
+                <p class="help-text">Upper limit on ratings (leave empty for no limit)</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="min_votes">Minimum Vote Count</label>
+                <input type="number" 
+                       id="min_votes" 
+                       name="min_votes" 
+                       value="{{ curation.min_votes if curation else '' }}"
+                       min="0"
+                       placeholder="100">
+                <p class="help-text">Exclude obscure movies with few votes</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="year_start">Year Range - Start</label>
+                <input type="number" 
+                       id="year_start" 
+                       name="year_start" 
+                       value="{{ curation.year_start if curation else '' }}"
+                       min="1900"
+                       max="2030"
+                       placeholder="1970">
+            </div>
+            
+            <div class="form-group">
+                <label for="year_end">Year Range - End</label>
+                <input type="number" 
+                       id="year_end" 
+                       name="year_end" 
+                       value="{{ curation.year_end if curation else '' }}"
+                       min="1900"
+                       max="2030"
+                       placeholder="2024">
+                <p class="help-text">Limit movies to specific years</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="runtime_min">Runtime - Minimum (minutes)</label>
+                <input type="number" 
+                       id="runtime_min" 
+                       name="runtime_min" 
+                       value="{{ curation.runtime_min if curation else '' }}"
+                       min="0"
+                       placeholder="80">
+            </div>
+            
+            <div class="form-group">
+                <label for="runtime_max">Runtime - Maximum (minutes)</label>
+                <input type="number" 
+                       id="runtime_max" 
+                       name="runtime_max" 
+                       value="{{ curation.runtime_max if curation else '' }}"
+                       min="0"
+                       placeholder="180">
+                <p class="help-text">Filter by movie length</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="content_rating">Content Rating</label>
+                <input type="text" 
+                       id="content_rating" 
+                       name="content_rating" 
+                       value="{{ curation.content_rating if curation else '' }}"
+                       placeholder="G, PG, PG-13, R">
+                <p class="help-text">Comma-separated ratings to include</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="language">Language</label>
+                <input type="text" 
+                       id="language" 
+                       name="language" 
+                       value="{{ curation.language if curation else '' }}"
+                       placeholder="en">
+                <p class="help-text">ISO language code (en, fr, es, etc.)</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="include_genres">Include Genres</label>
+                <input type="text" 
+                       id="include_genres" 
+                       name="include_genres" 
+                       value="{{ curation.include_genres if curation else '' }}"
+                       placeholder="Horror, Thriller, Mystery">
+                <p class="help-text">Must have at least one of these genres (comma-separated)</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="exclude_genres">Exclude Genres</label>
+                <input type="text" 
+                       id="exclude_genres" 
+                       name="exclude_genres" 
+                       value="{{ curation.exclude_genres if curation else '' }}"
+                       placeholder="Documentary, Animation">
+                <p class="help-text">Exclude these genres (comma-separated)</p>
+            </div>
+
+            <!-- Display Options -->
+            <h3 style="color: #e5a00d; margin-top: 30px;">Display Options</h3>
+            
+            <div class="form-group">
+                <input type="checkbox" 
+                       id="promote_to_home" 
+                       name="promote_to_home"
+                       {% if not curation or curation.promote_to_home != false %}checked{% endif %}>
+                <label for="promote_to_home" class="checkbox-label">Promote to Home Screen</label>
+                <p class="help-text">Show this collection on the Plex home screen</p>
+            </div>
+            
+            <div class="form-group">
+                <label for="poster_url">Custom Poster URL</label>
+                <input type="text" 
+                       id="poster_url" 
+                       name="poster_url" 
+                       value="{{ curation.poster_url if curation else '' }}"
+                       placeholder="https://example.com/poster.jpg">
+                <p class="help-text">URL to custom poster image</p>
+            </div>
+            
+            <!-- AI Options -->
+            <h3 style="color: #e5a00d; margin-top: 30px;">AI Options</h3>
+            
+            <div class="form-group">
+                <label for="prioritize">Prioritization</label>
+                <select id="prioritize" name="prioritize">
+                    <option value="">Default</option>
+                    <option value="recent" {% if curation and curation.prioritize == 'recent' %}selected{% endif %}>Recent Movies</option>
+                    <option value="classic" {% if curation and curation.prioritize == 'classic' %}selected{% endif %}>Classic Films</option>
+                    <option value="rating" {% if curation and curation.prioritize == 'rating' %}selected{% endif %}>Highest Rated</option>
+                    <option value="popularity" {% if curation and curation.prioritize == 'popularity' %}selected{% endif %}>Most Popular</option>
+                </select>
+                <p class="help-text">Guide AI suggestions toward specific criteria</p>
+            </div>
+        </div>
+
+        <!-- Save Buttons -->
+        <div style="display: flex; gap: 10px; margin-top: 30px;">
             <button type="submit" class="btn">Save Curation</button>
             <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
         </div>
@@ -99,7 +286,14 @@ function togglePrompt() {
     promptGroup.style.display = useAi ? 'block' : 'none';
 }
 
+function toggleAdvanced() {
+    const showAdvanced = document.getElementById('show_advanced').checked;
+    const advancedSection = document.getElementById('advanced-section');
+    advancedSection.style.display = showAdvanced ? 'block' : 'none';
+}
+
 // Initialize on load
 togglePrompt();
+toggleAdvanced();
 </script>
 {% endblock %}
