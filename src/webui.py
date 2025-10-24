@@ -8,16 +8,22 @@ import config
 app = Flask(__name__, template_folder=config.TEMPLATES_DIR)
 app.secret_key = os.urandom(24)
 
-CRON_FILE = os.path.join(config.DATA_DIR, "cron_schedule.json")
+SCHEDULE_FILE = os.path.join(config.DATA_DIR, "schedule.json")
 
-def load_cron_schedule():
-    if os.path.exists(CRON_FILE):
-        with open(CRON_FILE, 'r') as f:
+def load_schedule():
+    """Load enhanced schedule configuration"""
+    if os.path.exists(SCHEDULE_FILE):
+        with open(SCHEDULE_FILE, 'r') as f:
             return json.load(f)
-    return {}
+    return {
+        "monthly_auto": {"enabled": True, "cron": "0 0 1 * *", "description": "Auto-run current month"},
+        "individual": {},
+        "recurring": {}
+    }
 
-def save_cron_schedule(schedule):
-    with open(CRON_FILE, 'w') as f:
+def save_schedule(schedule):
+    """Save enhanced schedule configuration"""
+    with open(SCHEDULE_FILE, 'w') as f:
         json.dump(schedule, f, indent=2)
 
 def get_all_curations():

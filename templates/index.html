@@ -63,10 +63,63 @@
 </div>
 
 <div class="card">
-    <h2>Schedule</h2>
-    <p class="help-text">Configure cron schedules for automatic curation runs</p>
+    <h2>Scheduling</h2>
+    <p class="help-text">Configure when curations run automatically</p>
     
-    <table>
+    <!-- Monthly Auto-Curator -->
+    <h3 style="color: #e5a00d; margin-top: 20px;">📅 Monthly Auto-Curator</h3>
+    <p class="help-text">Automatically runs the correct month's YAML (january.yaml in January, etc.)</p>
+    
+    <table style="margin-bottom: 30px;">
+        <thead>
+            <tr>
+                <th>Enabled</th>
+                <th>Cron Schedule</th>
+                <th>Description</th>
+                <th>Detected Month Files</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>
+                    <input type="checkbox" 
+                           id="monthly-auto-enabled"
+                           {% if schedule.monthly_auto.enabled %}checked{% endif %}>
+                </td>
+                <td>
+                    <input type="text" 
+                           id="monthly-auto-cron"
+                           value="{{ schedule.monthly_auto.cron }}"
+                           placeholder="0 0 1 * *"
+                           style="width: 150px;">
+                </td>
+                <td>
+                    <input type="text" 
+                           id="monthly-auto-description"
+                           value="{{ schedule.monthly_auto.description }}"
+                           placeholder="Monthly auto-run">
+                </td>
+                <td>
+                    <span class="badge badge-info">{{ monthly_curations|length }}/12 months</span>
+                    {% if monthly_curations|length < 12 %}
+                        <span style="color: #999; font-size: 0.85rem;">
+                            (Missing: 
+                            {% set found_months = monthly_curations|map(attribute='name')|list %}
+                            {% for month in ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'] %}
+                                {% if month not in found_months %}{{ month }}{% if not loop.last %}, {% endif %}{% endif %}
+                            {% endfor %})
+                        </span>
+                    {% endif %}
+                </td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Individual Schedules -->
+    <h3 style="color: #e5a00d; margin-top: 20px;">🎯 Individual Schedules</h3>
+    <p class="help-text">Run specific curations on custom schedules (e.g., halloween.yaml on Oct 1st)</p>
+    
+    <table style="margin-bottom: 30px;">
         <thead>
             <tr>
                 <th>Curation</th>
@@ -75,38 +128,92 @@
                 <th>Enabled</th>
             </tr>
         </thead>
-        <tbody id="schedule-table">
-            {% for c in curations %}
+        <tbody id="individual-schedule-table">
+            {% for c in other_curations %}
             <tr>
-                <td>{{ c.name }}</td>
+                <td><strong>{{ c.name }}</strong></td>
                 <td>
                     <input type="text" 
-                           class="schedule-input" 
+                           class="individual-cron" 
                            data-filename="{{ c.filename }}"
-                           value="{{ cron_schedule.get(c.filename, {}).get('cron', '0 0 1 * *') }}"
-                           placeholder="0 0 1 * *">
+                           value="{{ schedule.individual.get(c.filename, {}).get('cron', '0 0 1 * *') }}"
+                           placeholder="0 0 1 10 *"
+                           style="width: 150px;">
                 </td>
                 <td>
                     <input type="text" 
-                           class="description-input"
+                           class="individual-description"
                            data-filename="{{ c.filename }}"
-                           value="{{ cron_schedule.get(c.filename, {}).get('description', 'Monthly') }}"
-                           placeholder="Monthly">
+                           value="{{ schedule.individual.get(c.filename, {}).get('description', '') }}"
+                           placeholder="Run once per year">
                 </td>
                 <td>
                     <input type="checkbox" 
-                           class="schedule-enabled"
+                           class="individual-enabled"
                            data-filename="{{ c.filename }}"
-                           {% if c.filename in cron_schedule %}checked{% endif %}>
+                           {% if c.filename in schedule.individual %}checked{% endif %}>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Recurring Curations -->
+    <h3 style="color: #e5a00d; margin-top: 20px;">🔄 Recurring Curations</h3>
+    <p class="help-text">Curations that run repeatedly (e.g., newest-movies.yaml every 2 weeks)</p>
+    
+    <table style="margin-bottom: 20px;">
+        <thead>
+            <tr>
+                <th>Curation</th>
+                <th>Cron Schedule</th>
+                <th>Description</th>
+                <th>Enabled</th>
+            </tr>
+        </thead>
+        <tbody id="recurring-schedule-table">
+            {% for c in other_curations %}
+            <tr>
+                <td><strong>{{ c.name }}</strong></td>
+                <td>
+                    <input type="text" 
+                           class="recurring-cron" 
+                           data-filename="{{ c.filename }}"
+                           value="{{ schedule.recurring.get(c.filename, {}).get('cron', '0 0 */14 * *') }}"
+                           placeholder="0 0 */14 * *"
+                           style="width: 150px;">
+                </td>
+                <td>
+                    <input type="text" 
+                           class="recurring-description"
+                           data-filename="{{ c.filename }}"
+                           value="{{ schedule.recurring.get(c.filename, {}).get('description', '') }}"
+                           placeholder="Every 2 weeks">
+                </td>
+                <td>
+                    <input type="checkbox" 
+                           class="recurring-enabled"
+                           data-filename="{{ c.filename }}"
+                           {% if c.filename in schedule.recurring %}checked{% endif %}>
                 </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
     
-    <div style="margin-top: 15px;">
-        <button onclick="saveSchedule()" class="btn">Save Schedule</button>
-        <span class="help-text">Common: Daily (0 0 * * *), Weekly (0 0 * * 0), Monthly (0 0 1 * *)</span>
+    <div style="margin-top: 20px; padding: 15px; background: #333; border-radius: 5px;">
+        <strong style="color: #e5a00d;">Cron Examples:</strong><br>
+        <span style="color: #999; font-size: 0.9rem;">
+            • <code>0 0 1 * *</code> - Monthly (1st day)<br>
+            • <code>0 0 */14 * *</code> - Every 14 days<br>
+            • <code>0 0 * * 0</code> - Weekly (Sunday)<br>
+            • <code>0 0 1 10 *</code> - October 1st only<br>
+            • <code>0 2 * * *</code> - Daily at 2 AM
+        </span>
+    </div>
+    
+    <div style="margin-top: 20px;">
+        <button onclick="saveSchedule()" class="btn">💾 Save All Schedules</button>
     </div>
 </div>
 
