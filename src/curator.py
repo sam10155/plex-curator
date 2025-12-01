@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import os
+import sys
 import yaml
 import json
 import config
@@ -7,6 +8,7 @@ from core.utils import log, clean_keywords
 from core.ai import generate_keywords, suggest_movies
 from core.tmdb import search_by_keywords, search_movies_parallel
 from core.plex import connect, PlexLibraryCache, find_movies, create_collection
+from tests.tmdb_test import run_all_tests
 
 CRON_FILE = os.path.join(config.DATA_DIR, "cron_schedule.json")
 
@@ -27,6 +29,19 @@ def run_curation(theme_file):
     log("=" * 70)
     log(f"RUNNING CURATION: {curation_name}")
     log("=" * 70)
+    
+    # TMDB API tests
+    log("PRE-CHECK: Testing TMDB API connectivity...")
+    log("-" * 70)
+    tests_passed = run_all_tests(verbose=False)
+    
+    if not tests_passed:
+        log("[X] TMDB API tests failed - aborting curation")
+        log("=" * 70)
+        return False
+    
+    log("[+] TMDB API tests passed")
+    log("")
 
     with open(theme_file, "r") as f:
         theme_cfg = yaml.safe_load(f) or {}

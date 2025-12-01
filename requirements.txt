@@ -1,0 +1,6 @@
+plexapi
+tmdbv3api
+requests
+pyyaml
+flask
+python-dotenv
