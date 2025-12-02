@@ -14,9 +14,29 @@ def parse_ollama_response(resp_text):
         parsed = json.loads(resp_text)
         if isinstance(parsed, list):
             return [str(x).strip() for x in parsed if str(x).strip()]
+        elif isinstance(parsed, dict):
+            all_values = []
+            for v in parsed.values():
+                if isinstance(v, list):
+                    all_values.extend([str(x).strip() for x in v])
+            return all_values
     except json.JSONDecodeError:
         pass
 
+    array_pattern = r'\[([^\]]+)\]'
+    arrays = re.findall(array_pattern, resp_text)
+    
+    keywords = []
+    for array_content in arrays:
+        items = array_content.split(',')
+        for item in items:
+            cleaned = re.sub(r'["\'\[\]]', '', item).strip()
+            if cleaned and len(cleaned) > 2:
+                keywords.append(cleaned)
+    
+    if keywords:
+        return keywords[:10]
+    
     resp_text = resp_text.strip("{}[]\n ")
     
     candidates = []

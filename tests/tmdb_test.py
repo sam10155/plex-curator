@@ -1,19 +1,17 @@
 import sys
 import os
 from tmdbv3api import TMDb, Movie
-
-# Add src to sys.path to allow importing config
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
-import config
-
-# Import functions to test
 from core.tmdb import search_by_keywords, search_movie_by_title, search_movies_parallel
 
-# Setup TMDb (Global setup for the module)
+import config
+
+if not os.path.exists("/opt/plex-curator/src"):
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../src')))
+
 tmdb = TMDb()
 tmdb.api_key = config.TMDB_KEY
 tmdb.language = "en"
-tmdb.debug = False  # Set to False for quieter output when running from curator
+tmdb.debug = False # Verbose debug
 
 def test_search_by_keywords(verbose=True):
     """Test search_by_keywords function. Returns True if successful."""
