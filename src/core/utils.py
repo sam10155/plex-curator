@@ -30,4 +30,13 @@ def normalize_title(title):
     return title.strip()
 
 def clean_keywords(keywords):
-    return [re.sub(r'^\d+\.\s*', '', kw).strip() for kw in keywords if kw.strip()]
+    """Clean and filter keyword list, removing malformed entries and JSON artifacts."""
+    cleaned = []
+    for kw in keywords:
+        if not kw or not kw.strip():
+            continue
+        kw = re.sub(r'^\d+\.\s*', '', kw).strip()
+        kw = re.sub(r'["\'\[\]:{}]', '', kw).strip()
+        if kw and len(kw) >= 3 and re.match(r'^[a-zA-Z][a-zA-Z0-9-]*$', kw):
+            cleaned.append(kw)
+    return cleaned

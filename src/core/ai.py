@@ -87,7 +87,7 @@ def ai_request(prompt):
         return []
 
 def generate_keywords(collection_name):
-    prompt = f"Keywords for '{collection_name}': Return exactly 7 genre/theme words as JSON array."
+    prompt = f'List exactly 7 keywords for the movie collection "{collection_name}". Return ONLY a simple JSON array of single-word keywords, like ["Dark", "Holiday", "Horror", "Winter", "Festive", "Joy", "Mother"]. No explanations, no categories, just the array.'
     keywords = ai_request(prompt)
     if not keywords:
         keywords = list(set(re.findall(r'\w+', collection_name.lower())))
