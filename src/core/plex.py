@@ -91,7 +91,7 @@ def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0, max_items=No
     
     return matched[:max_items], ai_matched_count
 
-def create_collection(plex, name, items, ai_count):
+def create_collection(plex, name, items, ai_count, promote_to_home=True):
     items = [i for i in items if hasattr(i, "ratingKey") and getattr(i, "ratingKey")]
     if not items:
         log(f"[X] No valid items for collection '{name}'")
@@ -129,22 +129,26 @@ def create_collection(plex, name, items, ai_count):
         if collection:
             try:
                 collection.editSortTitle(f"!{name}")
-                visibility_hub = collection.visibility()
-                visibility_hub.promoteHome()
-                visibility_hub.promoteShared()
+
+                if promote_to_home:
+                    visibility_hub = collection.visibility()
+                    visibility_hub.promoteHome()
+                    visibility_hub.promoteShared()
+                    log(f"    - Promoted to home screen")
+                else:
+                    log(f"    - Home screen promotion skipped (promote_to_home=False)")
                 
                 log(f"[+] Collection '{name}' created successfully!")
                 log(f"    - Total movies: {len(items)}")
                 log(f"    - AI-curated: {ai_count}")
                 log(f"    - Keyword-matched: {len(items) - ai_count}")
                 log(f"    - Sort title: !{name}")
-                log(f"    - Promoted to home screen")
             except Exception as e:
                 log(f"[+] Collection '{name}' created!")
                 log(f"    - Total movies: {len(items)}")
                 log(f"    - AI-curated: {ai_count}")
                 log(f"    - Keyword-matched: {len(items) - ai_count}")
-                log(f"[-] Promotion error: {e}")
+                log(f"[-] Promotion/sort error: {e}")
             
             return collection
         else:

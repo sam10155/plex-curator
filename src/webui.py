@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 import os
+import threading
 import yaml
 import json
 import config
 
 app = Flask(__name__, template_folder=config.TEMPLATES_DIR)
-app.secret_key = os.urandom(24)
+# Use a stable secret key from env so sessions survive container restarts
+app.secret_key = os.getenv("SECRET_KEY") or os.urandom(24)
 
 CRON_FILE = os.path.join(config.DATA_DIR, "cron_schedule.json")
 
@@ -121,6 +123,10 @@ def save_curation():
     
     if not name or not collection_name:
         flash('Name and Collection Name are required', 'error')
+        # Redirect back to edit page if editing, otherwise new curation page
+        filename = f"{name}.yaml" if name else None
+        if filename and os.path.exists(os.path.join(config.THEMES_DIR, filename)):
+            return redirect(url_for('edit_curation', filename=filename))
         return redirect(url_for('new_curation'))
     
     keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
@@ -194,21 +200,32 @@ def delete_curation(filename):
         flash('Curation not found', 'error')
     return redirect(url_for('index'))
 
+# Track running curation jobs so we can report status
+_running_jobs = {}
+_job_lock = threading.Lock()
+
 @app.route('/curation/run/<filename>', methods=['POST'])
 def run_curation_now(filename):
     curation_name = filename.replace('.yaml', '')
-    
-    try:
-        from curator import run_single_curation
-        success = run_single_curation(curation_name)
-        
-        if success:
-            flash(f'Curation "{curation_name}" completed successfully', 'success')
-        else:
-            flash(f'Curation "{curation_name}" completed with errors', 'error')
-    except Exception as e:
-        flash(f'Error running curation: {str(e)}', 'error')
-    
+
+    with _job_lock:
+        if curation_name in _running_jobs and _running_jobs[curation_name].is_alive():
+            flash(f'Curation "{curation_name}" is already running', 'warning')
+            return redirect(url_for('index'))
+
+    def _run():
+        try:
+            from curator import run_single_curation
+            run_single_curation(curation_name)
+        except Exception as e:
+            print(f"[X] Background curation error for {curation_name}: {e}")
+
+    thread = threading.Thread(target=_run, daemon=True, name=f"curation-{curation_name}")
+    with _job_lock:
+        _running_jobs[curation_name] = thread
+    thread.start()
+
+    flash(f'Curation "{curation_name}" started in the background — check the logs for progress', 'success')
     return redirect(url_for('index'))
 
 @app.route('/schedule/save', methods=['POST'])
@@ -230,7 +247,10 @@ def save_schedule():
     # Update actual cron jobs
     try:
         import subprocess
-        subprocess.run(['python3', '/opt/plex-curator/update_cron.py'], check=True)
+        subprocess.run(
+            ['python3', os.path.join(config.BASE_DIR, 'src', 'update_cron.py')],
+            check=True
+        )
     except Exception as e:
         print(f"Error updating cron: {e}")
     

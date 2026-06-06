@@ -18,10 +18,15 @@ services:
       - bash
       - -c
       - |
+        echo "Setting up environment for cron..."
+        # Export runtime env vars so cron jobs can access them
+        printenv | grep -E '^(PLEX_|TMDB_|AI_API|AI_MODEL|PYTHONPATH)' > /etc/environment
+        echo "PYTHONPATH=/opt/plex-curator/src:/opt/plex-curator" >> /etc/environment
+
         echo "Setting up cron job..."
-        echo "0 0 1 * * cd /opt/plex-curator && python3 -m src.monthly >> /var/log/plex-curator-monthly.log 2>&1" > /etc/cron.d/plex-curator-monthly
+        # /etc/cron.d files require: schedule username command
+        echo "0 0 1 * * root . /etc/environment; cd /opt/plex-curator && python3 src/monthly.py >> /var/log/plex-curator-monthly.log 2>&1" > /etc/cron.d/plex-curator-monthly
         chmod 0644 /etc/cron.d/plex-curator-monthly
-        crontab /etc/cron.d/plex-curator-monthly
 
         touch /var/log/plex-curator.log
         touch /var/log/plex-curator-monthly.log

@@ -50,6 +50,7 @@ def run_curation(theme_file):
     month_prompt = theme_cfg.get("prompt", "")
     min_rating = theme_cfg.get("filters", {}).get("min_rating", 0)
     max_items = theme_cfg.get("max_items", config.DEFAULT_COLLECTION_SIZE)
+    promote_to_home = theme_cfg.get("promote_to_home", True)
 
     log(f"[-] Collection Name: {collection_name}")
     log(f"[-] Target Size: {max_items} items")
@@ -126,7 +127,7 @@ def run_curation(theme_file):
     if matched_movies:
         log("STEP 4: Creating collection...")
         log("-" * 70)
-        create_collection(plex, collection_name, matched_movies, ai_count)
+        create_collection(plex, collection_name, matched_movies, ai_count, promote_to_home)
         log("")
         log("=" * 70)
         log("[+] SUCCESS!")
