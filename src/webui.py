@@ -5,6 +5,7 @@ import threading
 import yaml
 import json
 import config
+import traceback
 
 app = Flask(__name__, template_folder=config.TEMPLATES_DIR)
 # Use a stable secret key from env so sessions survive container restarts
@@ -219,6 +220,7 @@ def run_curation_now(filename):
             run_single_curation(curation_name)
         except Exception as e:
             print(f"[X] Background curation error for {curation_name}: {e}")
+            traceback.print_exc()
 
     thread = threading.Thread(target=_run, daemon=True, name=f"curation-{curation_name}")
     with _job_lock:

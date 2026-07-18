@@ -5,6 +5,23 @@ import requests
 from core.utils import log
 import config
 
+def clean_movie_candidates(items):
+    cleaned = []
+
+    for item in items:
+        item = item.strip()
+
+        # remove numbering
+        item = re.sub(r'^\d+[\.\)]\s*', '', item)
+
+        # reject obvious non-title responses
+        if len(item) < 2:
+            continue
+
+        cleaned.append(item)
+
+    return list(dict.fromkeys(cleaned))
+
 def parse_ollama_response(resp_text):
     resp_text = resp_text.strip()
     if not resp_text:
@@ -65,7 +82,14 @@ def ai_request(prompt):
     try:
         resp = requests.post(
             config.AI_API_URL,
-            json={"model": config.AI_MODEL, "prompt": prompt},
+            json={
+                "model": config.AI_MODEL,
+                "prompt": prompt,
+                "options": {
+                    "temperature": 0.2
+                },
+                "think": False
+                },
             stream=True,
             timeout=config.AI_TIMEOUT
         )
@@ -94,7 +118,23 @@ def generate_keywords(collection_name):
     return keywords
 
 def suggest_movies(theme_prompt, max_suggestions):
-    prompt = f"{theme_prompt}\n\nSuggest up to {max_suggestions} well-known movie titles that best fit this theme. Return ONLY a JSON list of movie titles (no years, no descriptions, no explanations)."
+    prompt = f"""
+    {theme_prompt}
+
+    You are selecting entries from a movie database.
+
+    Return up to {max_suggestions} actual movie titles.
+
+    Rules:
+    - Every item must be a film title.
+    - Do not return themes, topics, events, people, places, organizations, or keywords.
+    - Do not return explanations.
+    - Do not include years.
+    - Do not include TV shows unless explicitly requested.
+
+    Return ONLY valid JSON:
+    ["Movie Title 1", "Movie Title 2"]
+    """
     suggested_titles = ai_request(prompt)
     
     cleaned_titles = []
@@ -104,4 +144,4 @@ def suggest_movies(theme_prompt, max_suggestions):
         if title and len(title) > 2 and not title.startswith(("It seems", "Here", "From", "Sure", "I'd", "Based")):
             cleaned_titles.append(title)
     
-    return cleaned_titles
+    return list(dict.fromkeys(cleaned_titles))

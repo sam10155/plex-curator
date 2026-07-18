@@ -16,7 +16,7 @@ PLEX_URL = os.getenv("PLEX_URL")
 PLEX_TOKEN = os.getenv("PLEX_TOKEN")
 TMDB_KEY = os.getenv("TMDB_KEY")
 AI_API_URL = os.getenv("AI_API_URL")
-AI_MODEL = "mistral:instruct"
+AI_MODEL = "qwen3:8b"
 
 # Curator limits
 MAX_TMDB_CANDIDATES = 200 

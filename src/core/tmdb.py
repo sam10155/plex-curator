@@ -76,20 +76,49 @@ def search_movie_by_title(title, min_rating=0):
     if not resp:
         return None, f"[X] Not found on TMDB: {title}"
 
-    movie = resp[0]
-    rating = getattr(movie, "vote_average", 0) or 0
+    movie = next(iter(resp), None)
 
+    if movie is None:
+        return None, f"[X] Not found on TMDB: {title}"
+
+    if isinstance(movie, str):
+        return None, f"[X] Invalid TMDB result for '{title}': got string"
+
+    rating = getattr(movie, "vote_average", 0) or 0
+    movie_title = getattr(movie, "title", None)
+
+    if callable(movie_title):
+        movie_title = None
+    
+    if not movie_title:
+        movie_title = title
+    
     if rating >= min_rating:
-        year = getattr(movie, "release_date", "")[:4] if getattr(movie, "release_date", None) else "????"
-        return movie.__dict__, f"[+] Found: {movie.title} ({year}) - Rating: {rating}/10"
+        year = (
+            getattr(movie, "release_date", "")[:4]
+            if getattr(movie, "release_date", None)
+            else "????"
+        )
+
+        return (
+            movie.__dict__,
+            f"[+] Found: {movie_title} ({year}) - Rating: {rating}/10"
+        )
+
     else:
-        return None, f"[X] Skipped: {movie.title} (rating {rating} < {min_rating})"
+        return (
+            None,
+            f"[X] Skipped: {movie_title} (rating {rating} < {min_rating})"
+        )
 
 
 # ---------------------------------------------------------
 # Parallel search over many titles
 # ---------------------------------------------------------
 def search_movies_parallel(titles, min_rating=0):
+    titles = list(dict.fromkeys(
+        t.strip() for t in titles if t.strip()
+    ))
     results = []
     seen_ids = set()
 

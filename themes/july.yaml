@@ -1,11 +1,36 @@
-playlist_name: "Independence & Freedom"
-prompt: |
-  You are an AI Plex curator. Select patriotic and freedom-themed films:
-  - American history, military, and patriotic themes
-  - stories of freedom, revolution, and independence
-  - war films and historical dramas
-  - inspiring tales of courage and sacrifice
-  Return your answer **only** as a valid JSON array of movie titles, like:
-  ["Saving Private Ryan", "Independence Day", "Forrest Gump", "Apollo 13", "1776"]
+playlist_name: Oh Canada!
+max_items: 100
 filters:
-  min_rating: 6.5
+  min_rating: 5.0
+promote_to_home: true
+keywords:
+- Canada
+- Canadian
+- Toronto
+- Montreal
+- Vancouver
+- Ontario
+- Quebec
+- Indigenous
+- First Nations
+prompt: |
+ You are creating a Plex collection called "Oh Canada!".
+ 
+  Select ONLY movies strongly connected to Canada.
+
+  Prioritize:
+  - Canadian-made films
+  - Films set in Canada
+  - Stories about Canadian history
+  - Canadian historical figures
+  - Indigenous Canadian stories
+  - Canadian culture and identity
+  - Canadian landscapes and locations
+
+  Avoid:
+  - American patriotic movies
+  - American Revolutionary War movies
+  - generic wilderness movies
+  - movies that only share themes like "freedom" or "war"
+
+  Return only a JSON array of movie titles.
