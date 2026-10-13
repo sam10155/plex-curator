@@ -27,7 +27,7 @@ AI_API_URL = os.getenv("AI_API_URL")
 AI_MODEL = os.getenv("AI_MODEL", "qwen3:8b")
 
 # Web UI
-WEB_PORT = int(os.getenv("WEB_PORT", "8088"))
+WEB_PORT = int(os.getenv("WEB_PORT", "5000"))
 WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
 
 # Curator limits
