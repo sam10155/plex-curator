@@ -1,6 +1,6 @@
 # Plex Curator with Web UI
 
-AI-powered movie collection and TV channel curator for Plex with a web interface for easy management.
+LLM-powered movie collection and TV channel curator for Plex with a web interface for easy management.
 
 ## Features
 
