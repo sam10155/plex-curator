@@ -1,0 +1,99 @@
+{% macro schedule_picker(cron) %}
+<div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
+    <select id="sched-freq" onchange="schedUpdate()" style="width: auto;">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+        <option value="custom">Custom (cron)</option>
+    </select>
+    <select id="sched-dow" onchange="schedUpdate()" style="width: auto; display: none;">
+        <option value="0">Sunday</option>
+        <option value="1">Monday</option>
+        <option value="2">Tuesday</option>
+        <option value="3">Wednesday</option>
+        <option value="4">Thursday</option>
+        <option value="5">Friday</option>
+        <option value="6">Saturday</option>
+    </select>
+    <select id="sched-month" onchange="schedUpdate()" style="width: auto; display: none;">
+        <option value="1">January</option>
+        <option value="2">February</option>
+        <option value="3">March</option>
+        <option value="4">April</option>
+        <option value="5">May</option>
+        <option value="6">June</option>
+        <option value="7">July</option>
+        <option value="8">August</option>
+        <option value="9">September</option>
+        <option value="10">October</option>
+        <option value="11">November</option>
+        <option value="12">December</option>
+    </select>
+    <span id="sched-dom-wrap" style="display: none;">
+        day <input type="number" id="sched-dom" min="1" max="31" value="1"
+                   onchange="schedUpdate()" style="width: 70px;">
+    </span>
+    <span id="sched-time-wrap">
+        at <input type="time" id="sched-time" value="05:00"
+                  onchange="schedUpdate()" style="width: auto;">
+    </span>
+    <input type="text" id="sched-custom" class="mono"
+           style="width: 170px; display: none;" placeholder="0 5 * * 6"
+           oninput="schedUpdate()">
+</div>
+<input type="hidden" name="schedule_cron" id="schedule_cron" value="{{ cron }}">
+<p class="help-text" id="sched-desc"></p>
+
+<script>
+function _schedEl(id) { return document.getElementById(id); }
+
+function schedUpdate() {
+    const freq = _schedEl('sched-freq').value;
+    _schedEl('sched-dow').style.display = freq === 'weekly' ? '' : 'none';
+    _schedEl('sched-month').style.display = freq === 'yearly' ? '' : 'none';
+    _schedEl('sched-dom-wrap').style.display = (freq === 'monthly' || freq === 'yearly') ? '' : 'none';
+    _schedEl('sched-time-wrap').style.display = freq === 'custom' ? 'none' : '';
+    _schedEl('sched-custom').style.display = freq === 'custom' ? '' : 'none';
+
+    const [h, m] = (_schedEl('sched-time').value || '05:00').split(':');
+    const min = parseInt(m, 10) || 0, hr = parseInt(h, 10) || 0;
+    const dom = parseInt(_schedEl('sched-dom').value, 10) || 1;
+    let cron;
+    if (freq === 'daily')        cron = `${min} ${hr} * * *`;
+    else if (freq === 'weekly')  cron = `${min} ${hr} * * ${_schedEl('sched-dow').value}`;
+    else if (freq === 'monthly') cron = `${min} ${hr} ${dom} * *`;
+    else if (freq === 'yearly')  cron = `${min} ${hr} ${dom} ${_schedEl('sched-month').value} *`;
+    else                         cron = _schedEl('sched-custom').value.trim();
+
+    _schedEl('schedule_cron').value = cron;
+    _schedEl('sched-desc').textContent = 'cron: ' + (cron || '(empty)');
+}
+
+(function schedInit() {
+    const cron = _schedEl('schedule_cron').value.trim();
+    const p = cron.split(/\s+/);
+    const pad = n => String(parseInt(n, 10)).padStart(2, '0');
+    let freq = 'custom';
+    if (p.length === 5 && /^\d+$/.test(p[0]) && /^\d+$/.test(p[1])) {
+        _schedEl('sched-time').value = pad(p[1]) + ':' + pad(p[0]);
+        if (p[2] === '*' && p[3] === '*' && p[4] === '*') {
+            freq = 'daily';
+        } else if (p[2] === '*' && p[3] === '*' && /^[0-7]$/.test(p[4])) {
+            freq = 'weekly';
+            _schedEl('sched-dow').value = p[4] === '7' ? '0' : p[4];
+        } else if (/^\d+$/.test(p[2]) && p[3] === '*' && p[4] === '*') {
+            freq = 'monthly';
+            _schedEl('sched-dom').value = p[2];
+        } else if (/^\d+$/.test(p[2]) && /^\d+$/.test(p[3]) && p[4] === '*') {
+            freq = 'yearly';
+            _schedEl('sched-dom').value = p[2];
+            _schedEl('sched-month').value = String(parseInt(p[3], 10));
+        }
+    }
+    _schedEl('sched-freq').value = freq;
+    if (freq === 'custom') _schedEl('sched-custom').value = cron;
+    schedUpdate();
+})();
+</script>
+{% endmacro %}

@@ -4,3 +4,5 @@ requests
 pyyaml
 flask
 python-dotenv
+croniter
+waitress

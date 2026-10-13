@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+
+{% block title %}TV Channels - Plex Curator{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('new_channel') }}" class="btn">+ New Channel</a>
+</div>
+
+<div class="card">
+    <h2>TV Channels</h2>
+    <p class="help-text">Each channel is an AI-curated playlist of episodes, rebuilt on its schedule. Shows and episodes rotate week to week, and the same series never plays back-to-back (multi-part episodes excepted).</p>
+
+    {% if channels %}
+    <table>
+        <thead>
+            <tr>
+                <th>Channel</th>
+                <th>Block</th>
+                <th>Next Run</th>
+                <th>Last Run</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in channels %}
+            <tr>
+                <td>
+                    <strong>{{ c.name }}</strong>
+                    <span class="sub">{{ c.playlist_name }}</span>
+                </td>
+                <td>
+                    <span class="badge badge-info">{{ c.target_hours }}–{{ c.max_hours }}h · {{ c.shows_per_block }} shows</span>
+                    <span class="sub">
+                        {% if c.genre_hints %}
+                            {{ c.genre_hints[:3]|join(', ') }}{% if c.genre_hints|length > 3 %}…{% endif %}
+                        {% else %}
+                            Any genre
+                        {% endif %}
+                    </span>
+                </td>
+                <td>
+                    {% if c.job.next_run %}
+                        <span class="mono">{{ c.job.next_run|replace('T', ' ') }}</span>
+                    {% elif not c.job.enabled and c.job.cron %}
+                        <span class="badge badge-muted">off</span>
+                    {% else %}
+                        <span style="color: #999;">—</span>
+                    {% endif %}
+                    {% if c.job.cron_text %}
+                        <span class="sub">{{ c.job.cron_text }}{% if not c.job.enabled %} (disabled){% endif %}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="{{ url_for('job_log', job_id=c.job.job_id) }}" class="badge-link" title="View log{% if c.job.last_error %}: {{ c.job.last_error }}{% endif %}">
+                    {% if c.job.last_status == 'success' %}
+                        <span class="badge badge-success">success</span>
+                    {% elif c.job.last_status == 'failed' %}
+                        <span class="badge badge-danger">failed</span>
+                    {% elif c.job.last_status == 'running' %}
+                        <span class="badge badge-info">running</span>
+                    {% else %}
+                        <span class="badge badge-muted">never run</span>
+                    {% endif %}
+                    </a>
+                    {% if c.job.last_run %}
+                        <span class="sub">{{ c.job.last_run|replace('T', ' ') }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="actions">
+                        <a href="{{ url_for('edit_channel', filename=c.filename) }}" class="btn btn-small btn-secondary">Edit</a>
+                        <form method="POST" action="{{ url_for('run_channel_now', filename=c.filename) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-small" onclick="return confirm('Rebuild this channel now?')">Run Now</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('preview_channel', filename=c.filename) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-small btn-secondary" title="Dry run: shows the lineup in the log without touching Plex or rotation history">Preview</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('delete_channel', filename=c.filename) }}" style="display: inline;">
+                            <button type="submit" class="btn btn-small btn-danger" onclick="return confirm('Delete this channel?')">Delete</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #999;">No channels yet. Create your first one!</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+channel_name: Saturday Morning Cartoons
+playlist_name: "Saturday Morning Cartoons"
+prompt: |
+  You are curating a nostalgic Saturday-morning cartoon block.
+  Pick classic and modern animated series that are lighthearted,
+  kid-friendly, and episodic — the kind of shows that aired on
+  Saturday mornings: action-adventure cartoons, comedies, and
+  animated classics. Avoid adult animation and anything dark,
+  gritty, or serialized drama.
+target_hours: 4
+max_hours: 5
+shows_per_block: 6
+genre_hints: [Animation, Children, Family, Comedy]
+default_schedule: "0 5 * * 6"

@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% from "_schedule_picker.html" import schedule_picker %}
+
+{% block title %}{% if channel %}Edit{% else %}New{% endif %} Channel - Plex Curator{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px;">
+    <a href="{{ url_for('tv') }}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="card">
+    <h2>{% if channel %}Edit{% else %}Create New{% endif %} TV Channel</h2>
+
+    <form method="POST" action="{{ url_for('save_channel') }}">
+        <div class="form-group">
+            <label for="name">Channel Name *</label>
+            <input type="text"
+                   id="name"
+                   name="name"
+                   value="{{ channel.name if channel else '' }}"
+                   {% if channel %}readonly{% endif %}
+                   placeholder="saturday_morning_cartoons"
+                   required>
+            <p class="help-text">Internal id — lowercase, underscores instead of spaces</p>
+        </div>
+
+        <div class="form-group">
+            <label for="playlist_name">Playlist Name *</label>
+            <input type="text"
+                   id="playlist_name"
+                   name="playlist_name"
+                   value="{{ channel.playlist_name if channel else '' }}"
+                   placeholder="Saturday Morning Cartoons"
+                   required>
+            <p class="help-text">The playlist name that will appear in Plex</p>
+        </div>
+
+        <div class="form-group">
+            <label for="prompt">Theme Prompt</label>
+            <textarea id="prompt"
+                      name="prompt"
+                      placeholder="Classic and modern animated series that fit a nostalgic Saturday-morning cartoon block...">{{ channel.prompt if channel else '' }}</textarea>
+            <p class="help-text">Instructions for the AI on which shows fit this channel</p>
+        </div>
+
+        <div class="form-group">
+            <label for="target_hours">Target Hours</label>
+            <input type="number" id="target_hours" name="target_hours"
+                   value="{{ channel.target_hours if channel else '4' }}"
+                   min="1" max="12" step="0.5">
+            <p class="help-text">The block keeps adding episodes until it reaches this length</p>
+        </div>
+
+        <div class="form-group">
+            <label for="max_hours">Max Hours</label>
+            <input type="number" id="max_hours" name="max_hours"
+                   value="{{ channel.max_hours if channel else '6' }}"
+                   min="1" max="16" step="0.5">
+            <p class="help-text">Hard ceiling — the block will never exceed this</p>
+        </div>
+
+        <div class="form-group">
+            <label for="shows_per_block">Shows Per Block</label>
+            <input type="number" id="shows_per_block" name="shows_per_block"
+                   value="{{ channel.shows_per_block if channel else '6' }}"
+                   min="2" max="20">
+            <p class="help-text">How many different series to interleave in one block</p>
+        </div>
+
+        <div class="form-group">
+            <label for="genre_hints">Genre Hints</label>
+            <input type="text" id="genre_hints" name="genre_hints"
+                   value="{{ channel.genre_hints if channel else '' }}"
+                   placeholder="Animation, Children, Family">
+            <p class="help-text">Comma-separated Plex genres to pre-filter candidates (optional)</p>
+        </div>
+
+        <div class="form-group">
+            <label for="episode_keywords">Episode Keyword Boost</label>
+            <input type="text" id="episode_keywords" name="episode_keywords"
+                   value="{{ channel.episode_keywords if channel else '' }}"
+                   placeholder="halloween, spooky, haunted, costume">
+            <p class="help-text">Comma-separated. Episodes whose titles match get picked first — great for seasonal channels (optional)</p>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="prefer_unwatched" name="prefer_unwatched"
+                   {% if not channel or channel.prefer_unwatched %}checked{% endif %}>
+            <label for="prefer_unwatched" class="checkbox-label">Prefer Unwatched Episodes</label>
+            <p class="help-text">Deprioritize episodes already watched in Plex (they come back once a show runs out of fresh ones)</p>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="episode_level_ai" name="episode_level_ai"
+                   {% if channel and channel.episode_level_ai %}checked{% endif %}>
+            <label for="episode_level_ai" class="checkbox-label">Episode-Level AI Curation</label>
+            <p class="help-text">Also ask the AI to pick specific episodes matching the theme (slower; best for themed specials)</p>
+        </div>
+
+        <div class="form-group">
+            <label>Schedule</label>
+            {{ schedule_picker(channel.schedule_cron if channel else '0 5 * * 6') }}
+            <p class="help-text">When to rebuild the playlist. Default: Saturdays at 05:00</p>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="schedule_enabled" name="schedule_enabled"
+                   {% if not channel or channel.schedule_enabled %}checked{% endif %}>
+            <label for="schedule_enabled" class="checkbox-label">Schedule Enabled</label>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 30px;">
+            <button type="submit" class="btn">Save Channel</button>
+            <a href="{{ url_for('tv') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

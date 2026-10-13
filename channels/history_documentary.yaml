@@ -1,0 +1,13 @@
+channel_name: History & Documentary Channel
+playlist_name: "History & Documentaries"
+prompt: |
+  You are curating a history and documentary channel. Pick
+  documentary series, historical deep-dives, science and nature
+  programs, and biographical series — informative, well-produced
+  nonfiction television. Avoid fictional dramas, comedies, and
+  reality competition shows.
+target_hours: 5
+max_hours: 6
+shows_per_block: 4
+genre_hints: [Documentary, History, Biography, Science]
+default_schedule: "0 4 * * 1"

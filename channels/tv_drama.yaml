@@ -1,0 +1,13 @@
+channel_name: TV Drama Channel
+playlist_name: "TV Drama Channel"
+prompt: |
+  You are curating a prime-time drama channel. Pick acclaimed,
+  well-rated dramatic series: character-driven dramas, crime and
+  legal shows, medical dramas, and prestige television. Favor shows
+  with strong writing and high ratings. Avoid sitcoms, reality TV,
+  children's programming, and documentaries.
+target_hours: 5
+max_hours: 6
+shows_per_block: 5
+genre_hints: [Drama, Crime, Mystery, Thriller]
+default_schedule: "0 2 * * 0"

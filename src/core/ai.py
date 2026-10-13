@@ -2,7 +2,7 @@
 import json
 import re
 import requests
-from core.utils import log
+from core.utils import log, normalize_title
 import config
 
 def clean_movie_candidates(items):
@@ -117,10 +117,17 @@ def generate_keywords(collection_name):
         keywords = list(set(re.findall(r'\w+', collection_name.lower())))
     return keywords
 
-def suggest_movies(theme_prompt, max_suggestions):
+def suggest_movies(theme_prompt, max_suggestions, requirements=None):
+    requirements_block = ""
+    if requirements and requirements.strip():
+        requirements_block = f"""
+    HARD REQUIREMENTS — every single title MUST satisfy ALL of these:
+    {requirements.strip()}
+    Do not include any title that fails these requirements, even if it fits the theme.
+    """
     prompt = f"""
     {theme_prompt}
-
+    {requirements_block}
     You are selecting entries from a movie database.
 
     Return up to {max_suggestions} actual movie titles.
@@ -136,12 +143,175 @@ def suggest_movies(theme_prompt, max_suggestions):
     ["Movie Title 1", "Movie Title 2"]
     """
     suggested_titles = ai_request(prompt)
-    
+
     cleaned_titles = []
     for title in suggested_titles:
         title = re.sub(r'\s*[-:(].*$', '', title)
         title = title.strip('"\'')
         if title and len(title) > 2 and not title.startswith(("It seems", "Here", "From", "Sure", "I'd", "Based")):
             cleaned_titles.append(title)
-    
+
     return list(dict.fromkeys(cleaned_titles))
+
+def match_verification_response(returned, titles):
+    """Map a verification response back to candidate indices (0-based).
+    Accepts 1-based numbers ("3", 3) and/or titles; junk is ignored.
+    Pure function so it can be unit-tested offline."""
+    by_norm = {}
+    for i, title in enumerate(titles):
+        by_norm.setdefault(normalize_title(title), i)
+    kept = set()
+    for item in returned:
+        item = str(item).strip().strip('"\'')
+        m = re.match(r'^(\d+)[\.\):]?\s*', item)
+        if m and item == m.group(0).strip():
+            idx = int(m.group(1)) - 1
+            if 0 <= idx < len(titles):
+                kept.add(idx)
+            continue
+        item = re.sub(r'^\d+[\.\)]\s*', '', item)
+        item = re.sub(r'\s*\(\d{4}\)\s*$', '', item)
+        idx = by_norm.get(normalize_title(item))
+        if idx is not None:
+            kept.add(idx)
+    return kept
+
+
+def verify_movies(requirements, movies, batch_size=40):
+    """Second-pass gate: ask the LLM which already-matched movies actually
+    satisfy the theme's hard requirements; everything else is dropped.
+    Fails open — if the LLM errors or returns nothing usable for a batch,
+    that whole batch is kept (an unfiltered collection beats an empty one).
+
+    movies: objects with .title / .year / .summary (plexapi movies).
+    Returns the list of kept indices into `movies`, in order."""
+    kept = []
+    for start in range(0, len(movies), batch_size):
+        batch = movies[start:start + batch_size]
+        titles = [m.title for m in batch]
+        lines = []
+        for i, m in enumerate(batch, 1):
+            year = getattr(m, "year", None)
+            summary = (getattr(m, "summary", "") or "")[:150].replace("\n", " ")
+            lines.append(f"{i}. {m.title}" + (f" ({year})" if year else "") +
+                         (f" — {summary}" if summary else ""))
+        movie_list = "\n".join(lines)
+        prompt = f"""You are verifying movies against hard requirements.
+
+Requirements — a movie passes ONLY if it satisfies ALL of these:
+{requirements.strip()}
+
+Movies to verify:
+{movie_list}
+
+Return ONLY a valid JSON array with the numbers of the movies that PASS,
+for example: [1, 4, 7]. If none pass, return [].
+"""
+        returned = ai_request(prompt)
+        if not returned:
+            log(f"[-] Verification batch returned nothing usable — keeping all {len(batch)} (fail open)")
+            kept.extend(range(start, start + len(batch)))
+            continue
+        indices = match_verification_response(returned, titles)
+        for i in range(len(batch)):
+            if i in indices:
+                kept.append(start + i)
+            else:
+                log(f"    [X] Dropped by requirements: {batch[i].title}")
+    return kept
+
+
+def suggest_shows(theme_prompt, candidates, want):
+    """Ask the LLM to pick TV shows for a channel theme from the library's
+    candidate list. Returns the matching candidate records; anything the
+    model returns that isn't actually in the list is dropped."""
+    lines = []
+    for i, c in enumerate(candidates, 1):
+        parts = [c["title"] + (f" ({c['year']})" if c.get("year") else "")]
+        if c.get("genres"):
+            parts.append(", ".join(c["genres"][:4]))
+        if c.get("content_rating"):
+            parts.append(c["content_rating"])
+        rating = c.get("tmdb_rating") or c.get("rating")
+        if rating:
+            parts.append(f"rating {rating}/10")
+        if c.get("summary"):
+            parts.append(c["summary"][:120].replace("\n", " "))
+        lines.append(f"{i}. " + " | ".join(parts))
+
+    show_list = "\n".join(lines)
+    prompt = f"""{theme_prompt}
+
+Below is a numbered list of TV shows available in the library.
+Pick the {want} shows that best fit the theme above.
+
+{show_list}
+
+Rules:
+- Only choose shows from the list above, with titles exactly as written (omit the year and extra fields).
+- Do not invent shows that are not in the list.
+- Do not return explanations.
+
+Return ONLY valid JSON:
+["Show Title 1", "Show Title 2"]
+"""
+    returned = ai_request(prompt)
+
+    by_norm = {normalize_title(c["title"]): c for c in candidates}
+    picked = []
+    seen = set()
+    for title in returned:
+        title = re.sub(r'^\d+[\.\)]\s*', '', title)
+        title = re.sub(r'\s*\(\d{4}\)\s*$', '', title).strip('"\' ')
+        norm = normalize_title(title)
+        candidate = by_norm.get(norm)
+        if candidate and norm not in seen:
+            picked.append(candidate)
+            seen.add(norm)
+        elif title and not candidate:
+            log(f"    [X] Dropping AI pick not in library: {title}")
+
+    return picked[:want]
+
+def suggest_episodes(theme_prompt, episodes, want=20):
+    """Ask the LLM to pick specific episodes fitting a channel theme.
+    Returns the set of episode keys whose titles the model picked; used as
+    a soft preference boost in block assembly, so bad picks cost nothing."""
+    lines = []
+    for i, ep in enumerate(episodes, 1):
+        lines.append(f"{i}. {ep['show_title']} - S{ep['season']:02d}E{ep['episode']:02d} - {ep['title']}")
+
+    episode_list = "\n".join(lines)
+    prompt = f"""{theme_prompt}
+
+Below is a numbered list of TV episodes available in the library.
+Pick up to {want} episode titles that best fit the theme above.
+
+{episode_list}
+
+Rules:
+- Only choose episode titles exactly as written after the second dash.
+- Do not invent episodes that are not in the list.
+- Do not return explanations.
+
+Return ONLY valid JSON:
+["Episode Title 1", "Episode Title 2"]
+"""
+    returned = ai_request(prompt)
+
+    by_norm = {}
+    for ep in episodes:
+        by_norm.setdefault(normalize_title(ep["title"]), []).append(ep["key"])
+
+    keys = set()
+    for title in returned:
+        title = re.sub(r'^\d+[\.\)]\s*', '', title)
+        # tolerate "Show - S01E02 - Title" echoes
+        if " - " in title:
+            title = title.split(" - ")[-1]
+        norm = normalize_title(title.strip('"\' '))
+        for key in by_norm.get(norm, []):
+            keys.add(key)
+
+    log(f"[-] AI episode boost: {len(keys)} episodes preferred")
+    return keys

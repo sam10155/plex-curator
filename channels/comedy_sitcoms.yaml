@@ -1,0 +1,13 @@
+channel_name: Comedy / Sitcom Channel
+playlist_name: "Comedy & Sitcoms"
+prompt: |
+  You are curating a comedy channel. Pick funny, rewatchable
+  sitcoms and comedy series — workplace comedies, family sitcoms,
+  and ensemble comedies with episodic stories that are easy to drop
+  into. Favor well-loved, highly rated shows. Avoid dramas,
+  children's cartoons, and stand-up specials.
+target_hours: 4
+max_hours: 5
+shows_per_block: 6
+genre_hints: [Comedy, Sitcom]
+default_schedule: "0 3 * * 5"

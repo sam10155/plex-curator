@@ -1,13 +1,40 @@
-playlist_name: "November Movies"
-keywords:
-  - autumn
-  - november
-  - cozy
-  - fall
+playlist_name: "Lest We Forget"
+max_items: 100
+tmdb_discover:
+  genres: [War, History]
 filters:
   min_rating: 6.5
+promote_to_home: true
+keywords:
+  - war
+  - history
+  - military
+  - remembrance
+  - veteran
+  - soldier
+  - battle
+  - historical
 prompt: |
-  Suggest movies that feel like November or autumn:
-  - Moody, cozy, and introspective films
-  - Set in fall or with seasonal themes
-  - Family or drama movies that fit the November vibe
+  You are curating a November remembrance collection honouring military
+  history and those who served.
+
+  Prioritize:
+  - War films: World War I, World War II, Korea, Vietnam, and modern conflicts
+  - Stories of veterans, soldiers, and the home front
+  - Military history and historical dramas based on real events
+  - Canadian and Commonwealth military history (Vimy Ridge, Passchendaele,
+    Juno Beach, peacekeeping missions)
+  - Films about the cost of war, sacrifice, and remembrance
+  - Acclaimed documentaries about war and its aftermath
+
+  Avoid:
+  - Pure action movies that merely use war as a backdrop for spectacle
+  - Science fiction or fantasy wars
+  - Comedies that trivialize war
+
+  Return only a JSON array of movie titles.
+requirements: |
+  The movie must be substantially about war, military history, soldiers,
+  veterans, or remembrance of real-world conflict. Historical dramas rooted
+  in real wars qualify. Sci-fi/fantasy battles, superhero movies, and action
+  films that merely feature guns or explosions do NOT qualify.

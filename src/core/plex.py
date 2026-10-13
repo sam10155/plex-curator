@@ -5,14 +5,15 @@ from core.utils import log, normalize_title
 import config
 
 class PlexLibraryCache:
-    def __init__(self, plex):
+    def __init__(self, plex, section_name="Movies"):
         self.plex = plex
+        self.section_name = section_name
         self._cache = None
-    
+
     def get_movies(self):
         if self._cache is None:
-            self._cache = self.plex.library.section("Movies").all()
-            log(f"[-] Loaded {len(self._cache)} movies from Plex library")
+            self._cache = self.plex.library.section(self.section_name).all()
+            log(f"[-] Loaded {len(self._cache)} movies from Plex section '{self.section_name}'")
         return self._cache
     
     def get_normalized_map(self):
@@ -91,18 +92,18 @@ def find_movies(tmdb_movies, plex_cache, keywords, ai_count_hint=0, max_items=No
     
     return matched[:max_items], ai_matched_count
 
-def create_collection(plex, name, items, ai_count, promote_to_home=True):
+def create_collection(plex, name, items, ai_count, promote_to_home=True, section_name="Movies"):
     items = [i for i in items if hasattr(i, "ratingKey") and getattr(i, "ratingKey")]
     if not items:
         log(f"[X] No valid items for collection '{name}'")
         return None
-    
+
     log(f"[-] Creating collection with {len(items)} items ({ai_count} AI, {len(items) - ai_count} keywords)")
 
     try:
-        movies_section = plex.library.section("Movies")
+        movies_section = plex.library.section(section_name)
     except Exception as e:
-        log(f"[X] Failed to get Movies library: {e}")
+        log(f"[X] Failed to get '{section_name}' library: {e}")
         raise
 
     try:

@@ -1,5 +1,7 @@
 playlist_name: Oh Canada!
 max_items: 100
+tmdb_discover:
+  origin_country: CA
 filters:
   min_rating: 5.0
 promote_to_home: true
@@ -34,3 +36,10 @@ prompt: |
   - movies that only share themes like "freedom" or "war"
 
   Return only a JSON array of movie titles.
+requirements: |
+  The movie must satisfy at least ONE of these:
+  - It is a Canadian film (produced in Canada or by a Canadian studio/director)
+  - Its plot is substantially set in Canada
+  - It is about Canadian people, history, Indigenous Canadian stories, or Canadian culture
+  American films with no Canadian connection do NOT qualify, even if patriotic,
+  wilderness-themed, or about generic freedom/war topics.

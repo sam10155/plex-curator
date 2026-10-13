@@ -1,0 +1,18 @@
+channel_name: Halloween Specials
+playlist_name: "Halloween TV Specials"
+prompt: |
+  You are curating a Halloween TV block. Pick shows known for great
+  Halloween, horror, or supernatural-themed episodes — animated
+  comedies with annual Halloween specials, sitcoms with costume
+  episodes, and spooky anthology series. All ages welcome, from
+  family-friendly to genuinely creepy.
+target_hours: 4
+max_hours: 6
+shows_per_block: 6
+genre_hints: []
+episode_keywords: [halloween, trick or treat, spooky, haunted, ghost,
+                   monster, vampire, zombie, witch, costume, candy,
+                   pumpkin, scary, creepy, horror]
+prefer_unwatched: true
+episode_level_ai: false
+default_schedule: "0 6 1 10 *"

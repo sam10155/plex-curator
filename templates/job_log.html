@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Log: {{ job_id }} - Plex Curator{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 20px; display: flex; gap: 10px; align-items: center;">
+    <a href="{{ back_url }}" class="btn btn-secondary">← Back</a>
+    <a href="{{ url_for('job_log', job_id=job_id) }}" class="btn">Refresh</a>
+    {% if status.last_status == 'running' %}
+        <span class="badge badge-info">running — auto-refreshing</span>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Job Log: {{ job_id }}</h2>
+    <p class="help-text">
+        Last run: <span class="mono">{{ status.last_run or 'never' }}</span>
+        {% if status.last_status == 'success' %}
+            <span class="badge badge-success">success</span>
+        {% elif status.last_status == 'failed' %}
+            <span class="badge badge-danger">failed</span>
+        {% elif status.last_status == 'running' %}
+            <span class="badge badge-info">running</span>
+        {% endif %}
+        {% if status.last_error %} — {{ status.last_error }}{% endif %}
+    </p>
+
+    {% if content %}
+    <pre style="background: #111; border: 1px solid #444; border-radius: 5px; padding: 15px; overflow-x: auto; white-space: pre-wrap; font-size: 0.85rem; max-height: 70vh; overflow-y: auto;">{{ content }}</pre>
+    {% else %}
+    <p style="color: #999;">No log yet — this job hasn't produced output. Hit Run Now (or Preview) and refresh.</p>
+    {% endif %}
+</div>
+
+{% if status.history %}
+<div class="card">
+    <h2>Run History</h2>
+    <table>
+        <thead>
+            <tr><th>Started</th><th>Finished</th><th>Status</th><th>Error</th></tr>
+        </thead>
+        <tbody>
+            {% for run in status.history|reverse %}
+            <tr>
+                <td class="mono">{{ run.started }}</td>
+                <td class="mono">{{ run.finished }}</td>
+                <td>
+                    {% if run.status == 'success' %}
+                        <span class="badge badge-success">success</span>
+                    {% else %}
+                        <span class="badge badge-danger">failed</span>
+                    {% endif %}
+                </td>
+                <td>{{ run.error or '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% if status.last_status == 'running' %}
+<script>setTimeout(() => location.reload(), 5000);</script>
+{% endif %}
+{% endblock %}

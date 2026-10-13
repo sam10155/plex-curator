@@ -145,13 +145,46 @@
             border-radius: 3px;
             font-size: 0.8rem;
             font-weight: 600;
+            color: #fff;
+        }
+        a.badge-link { text-decoration: none; }
+        a.badge-link:hover .badge { filter: brightness(1.2); }
+        .card { overflow-x: auto; }
+        .sub {
+            display: block;
+            color: #999;
+            font-size: 0.8rem;
+            margin-top: 2px;
         }
         .badge-success { background: #2e7d32; }
         .badge-warning { background: #f57c00; }
         .badge-info { background: #0288d1; }
-        .actions {
+        .badge-danger { background: #c62828; }
+        .badge-muted { background: #555; }
+        nav.tabs {
+            margin-top: 12px;
             display: flex;
             gap: 10px;
+        }
+        nav.tabs a {
+            padding: 8px 18px;
+            border-radius: 5px 5px 0 0;
+            text-decoration: none;
+            color: #e0e0e0;
+            background: #222;
+            border: 1px solid #444;
+            border-bottom: none;
+            font-weight: 600;
+        }
+        nav.tabs a.active {
+            background: #e5a00d;
+            color: #000;
+        }
+        .mono { font-family: 'Courier New', monospace; font-size: 0.85rem; }
+        .actions {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
         }
         .help-text {
             font-size: 0.85rem;
@@ -164,7 +197,12 @@
     <header>
         <div class="container">
             <h1>🎬 Plex Curator</h1>
-            <p class="subtitle">AI-Powered Movie Collection Manager</p>
+            <p class="subtitle">AI-Powered Plex Collection &amp; Channel Manager</p>
+            {% set on_tv = request.path.startswith('/tv') or request.path.startswith('/channel') %}
+            <nav class="tabs">
+                <a href="{{ url_for('index') }}" class="{% if not on_tv %}active{% endif %}">🎞️ Movies</a>
+                <a href="{{ url_for('tv') }}" class="{% if on_tv %}active{% endif %}">📺 TV Channels</a>
+            </nav>
         </div>
     </header>
     
