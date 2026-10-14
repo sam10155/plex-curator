@@ -10,4 +10,6 @@ target_hours: 5
 max_hours: 6
 shows_per_block: 5
 genre_hints: [Drama, Crime, Mystery, Thriller]
+exclude_genres: [Animation, Children]
+exclude_single_season: true
 default_schedule: "0 2 * * 0"

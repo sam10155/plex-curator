@@ -295,6 +295,10 @@ def edit_channel(filename):
         'max_hours': data.get('max_hours', config.DEFAULT_MAX_HOURS),
         'shows_per_block': data.get('shows_per_block', config.DEFAULT_SHOWS_PER_BLOCK),
         'genre_hints': ', '.join(data.get('genre_hints', [])),
+        'exclude_genres': ', '.join(data.get('exclude_genres', [])),
+        'min_episodes': data.get('min_episodes', 0) or '',
+        'exclude_single_season': data.get('exclude_single_season', False),
+        'sequential': data.get('sequential', False),
         'episode_keywords': ', '.join(data.get('episode_keywords', [])),
         'prefer_unwatched': data.get('prefer_unwatched', True),
         'episode_level_ai': data.get('episode_level_ai', False),
@@ -312,7 +316,9 @@ def save_channel():
     schedule_cron = request.form.get('schedule_cron', '').strip() or '0 5 * * 6'
     schedule_enabled = request.form.get('schedule_enabled') == 'on'
     genre_hints = [g.strip() for g in request.form.get('genre_hints', '').split(',') if g.strip()]
+    exclude_genres = [g.strip() for g in request.form.get('exclude_genres', '').split(',') if g.strip()]
     episode_keywords = [k.strip() for k in request.form.get('episode_keywords', '').split(',') if k.strip()]
+    min_episodes = request.form.get('min_episodes', '').strip()
 
     if not name or not playlist_name:
         flash('Name and Playlist Name are required', 'error')
@@ -328,8 +334,14 @@ def save_channel():
         'genre_hints': genre_hints,
         'prefer_unwatched': request.form.get('prefer_unwatched') == 'on',
         'episode_level_ai': request.form.get('episode_level_ai') == 'on',
+        'exclude_single_season': request.form.get('exclude_single_season') == 'on',
+        'sequential': request.form.get('sequential') == 'on',
         'default_schedule': schedule_cron,
     }
+    if exclude_genres:
+        data['exclude_genres'] = exclude_genres
+    if min_episodes:
+        data['min_episodes'] = int(min_episodes)
     if episode_keywords:
         data['episode_keywords'] = episode_keywords
 

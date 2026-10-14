@@ -10,4 +10,5 @@ target_hours: 5
 max_hours: 6
 shows_per_block: 4
 genre_hints: [Documentary, History, Biography, Science]
+sequential: true
 default_schedule: "0 4 * * 1"

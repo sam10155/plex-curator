@@ -73,6 +73,35 @@ def unit_duration(unit, default_ms=DEFAULT_EPISODE_MS):
     return sum(ep.get("duration_ms") or default_ms for ep in unit)
 
 
+def filter_show_candidates(records, genre_hints=None, exclude_genres=None,
+                           min_episodes=0, exclude_single_season=False,
+                           min_needed=0):
+    """Filter show candidate records for a channel.
+
+    genre_hints is a soft include filter: if it leaves fewer than
+    min_needed shows, it is skipped entirely (same fallback the channel
+    pipeline always had). The exclusion filters are hard: exclude_genres
+    drops shows with any matching genre tag, min_episodes/
+    exclude_single_season drop short/limited series and most anthologies.
+    """
+    result = records
+    if genre_hints:
+        hints = {str(g).strip().lower() for g in genre_hints if g and str(g).strip()}
+        included = [r for r in result
+                    if hints & {g.lower() for g in r.get("genres", [])}]
+        if len(included) >= min_needed:
+            result = included
+    if exclude_genres:
+        excluded = {str(g).strip().lower() for g in exclude_genres if g and str(g).strip()}
+        result = [r for r in result
+                  if not (excluded & {g.lower() for g in r.get("genres", [])})]
+    if min_episodes:
+        result = [r for r in result if (r.get("episode_count") or 0) >= min_episodes]
+    if exclude_single_season:
+        result = [r for r in result if (r.get("season_count") or 0) >= 2]
+    return result
+
+
 def select_shows_for_block(candidates, history, count):
     """Pick `count` shows from LLM-approved candidates, rotating away from
     the shows used in the previous block and preferring least-recently /

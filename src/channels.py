@@ -21,7 +21,7 @@ from core.tv import (TVLibraryCache, show_summary_record, get_episode_records,
                      create_or_replace_playlist)
 from core.tmdb import enrich_shows
 from core.blocks import (detect_multipart_groups, select_shows_for_block,
-                         assemble_block)
+                         assemble_block, filter_show_candidates)
 from core.history import load_channel_history, update_channel_history
 
 
@@ -31,18 +31,6 @@ def load_channel_config(channel_name):
         return None
     with open(channel_file, "r") as f:
         return yaml.safe_load(f) or {}
-
-
-def _filter_by_genres(records, genre_hints, min_needed):
-    if not genre_hints:
-        return records
-    hints = {g.strip().lower() for g in genre_hints if g and g.strip()}
-    filtered = [r for r in records
-                if hints & {g.lower() for g in r.get("genres", [])}]
-    if len(filtered) < min_needed:
-        log(f"[-] Only {len(filtered)} shows match genre hints; using all shows")
-        return records
-    return filtered
 
 
 def _candidate_sort_key(record):
@@ -65,6 +53,10 @@ def run_channel(channel_name, dry_run=False):
     max_hours = float(cfg.get("max_hours", config.DEFAULT_MAX_HOURS))
     shows_per_block = int(cfg.get("shows_per_block", config.DEFAULT_SHOWS_PER_BLOCK))
     genre_hints = cfg.get("genre_hints", [])
+    exclude_genres = cfg.get("exclude_genres", [])
+    min_episodes = int(cfg.get("min_episodes", 0) or 0)
+    exclude_single_season = bool(cfg.get("exclude_single_season", False))
+    sequential = bool(cfg.get("sequential", False))
     section_name = cfg.get("library_section")
     prefer_unwatched = cfg.get("prefer_unwatched", True)
     episode_keywords = [k.lower() for k in cfg.get("episode_keywords", []) if k]
@@ -84,7 +76,14 @@ def run_channel(channel_name, dry_run=False):
     log("-" * 70)
     records = [show_summary_record(s) for s in shows]
     records = [r for r in records if r["episode_count"] > 0]
-    records = _filter_by_genres(records, genre_hints, shows_per_block * 2)
+    before = len(records)
+    records = filter_show_candidates(
+        records, genre_hints=genre_hints, exclude_genres=exclude_genres,
+        min_episodes=min_episodes, exclude_single_season=exclude_single_season,
+        min_needed=shows_per_block * 2)
+    log(f"[-] Filters kept {len(records)}/{before} shows "
+        f"(genres={genre_hints or 'any'}, exclude={exclude_genres or 'none'}, "
+        f"min_episodes={min_episodes}, exclude_single_season={exclude_single_season})")
     records.sort(key=_candidate_sort_key, reverse=True)
     records = records[:config.MAX_SHOW_CANDIDATES]
     log(f"[-] {len(records)} candidate shows")
@@ -99,9 +98,16 @@ def run_channel(channel_name, dry_run=False):
     picked = suggest_shows(theme_prompt, records, want) if theme_prompt.strip() else []
     if picked:
         log(f"[-] AI picked {len(picked)} shows: {', '.join(p['title'] for p in picked)}")
-    else:
-        log("[-] AI returned no usable picks; falling back to top-rated candidates")
-        picked = sorted(records, key=_candidate_sort_key, reverse=True)[:want]
+    # Guarantee a full rotation pool even if the model under-delivers —
+    # otherwise a 2-item answer produces a 2-show channel forever
+    if len(picked) < want:
+        picked_keys = {p["key"] for p in picked}
+        extras = [r for r in sorted(records, key=_candidate_sort_key, reverse=True)
+                  if r["key"] not in picked_keys][:want - len(picked)]
+        if extras:
+            log(f"[-] AI supplied {len(picked)}/{want}; topping up with "
+                f"{len(extras)} top-rated candidates: {', '.join(e['title'] for e in extras)}")
+            picked.extend(extras)
 
     log("STEP 4: Rotating shows and assembling the episode block...")
     log("-" * 70)
@@ -146,6 +152,13 @@ def run_channel(channel_name, dry_run=False):
     if episode_level_ai and theme_prompt.strip():
         candidates = all_episode_records[:config.MAX_EPISODE_CANDIDATES]
         preferred_keys |= suggest_episodes(theme_prompt, candidates)
+
+    if sequential:
+        # Strict airing order per show: no skips, no boosts — each week
+        # simply continues from where the cursors left off
+        log("[-] Sequential mode: episodes play in strict airing order")
+        recent_keys = set()
+        preferred_keys = set()
 
     hist_shows = history.get("shows", {})
     cursors = {k: hist_shows.get(k, {}).get("next_index", 0) for k in show_units}

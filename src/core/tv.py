@@ -34,6 +34,7 @@ def show_summary_record(show):
         "content_rating": getattr(show, "contentRating", None),
         "summary": (getattr(show, "summary", "") or "")[:200],
         "episode_count": getattr(show, "leafCount", 0) or 0,
+        "season_count": getattr(show, "childCount", 0) or 0,
         "rating": getattr(show, "audienceRating", None),
     }
 

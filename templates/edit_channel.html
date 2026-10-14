@@ -76,6 +76,36 @@
         </div>
 
         <div class="form-group">
+            <label for="exclude_genres">Exclude Genres</label>
+            <input type="text" id="exclude_genres" name="exclude_genres"
+                   value="{{ channel.exclude_genres if channel else '' }}"
+                   placeholder="Animation, Children">
+            <p class="help-text">Shows with any of these Plex genres are never picked — e.g. keep cartoons out of a live-action comedy channel</p>
+        </div>
+
+        <div class="form-group">
+            <label for="min_episodes">Minimum Episodes</label>
+            <input type="number" id="min_episodes" name="min_episodes"
+                   value="{{ channel.min_episodes if channel else '' }}"
+                   min="0" style="width: 110px;" placeholder="0">
+            <p class="help-text">Skip shows with fewer total episodes — filters out shorts and most limited series (optional)</p>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="exclude_single_season" name="exclude_single_season"
+                   {% if channel and channel.exclude_single_season %}checked{% endif %}>
+            <label for="exclude_single_season" class="checkbox-label">Exclude Single-Season Shows</label>
+            <p class="help-text">Skip limited series and one-season anthologies</p>
+        </div>
+
+        <div class="form-group">
+            <input type="checkbox" id="sequential" name="sequential"
+                   {% if channel and channel.sequential %}checked{% endif %}>
+            <label for="sequential" class="checkbox-label">Sequential Episodes</label>
+            <p class="help-text">Each show's episodes play in strict airing order, continuing across weeks (still interleaved with the other shows). Good for documentaries and serialized dramas. Disables watched/keyword skipping.</p>
+        </div>
+
+        <div class="form-group">
             <label for="episode_keywords">Episode Keyword Boost</label>
             <input type="text" id="episode_keywords" name="episode_keywords"
                    value="{{ channel.episode_keywords if channel else '' }}"

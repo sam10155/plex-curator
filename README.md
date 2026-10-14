@@ -1,6 +1,6 @@
 # Plex Curator with Web UI
 
-LLM-powered movie collection and TV channel curator for Plex with a web interface for easy management.
+AI-powered movie collection and TV channel curator for Plex with a web interface for easy management.
 
 ## Features
 
@@ -73,9 +73,9 @@ docker-compose up -d --build
 # Check logs
 docker logs -f plex-curator
 
-# Access Web UI (port 8088)
-# Local:  http://localhost:8088
-# Remote: ssh -L 8088:localhost:8088 user@server, then open http://localhost:8088
+# Access Web UI (port 5000)
+# Local:  http://localhost:5000
+# Remote: ssh -L 5000:localhost:5000 user@server, then open http://localhost:5000
 ```
 
 ## TV Channels
@@ -225,13 +225,13 @@ PYTHONPATH=src python3 tests/scheduler_test.py
 ### Web UI not accessible
 ```bash
 docker ps | grep plex-curator
-docker port plex-curator        # should show 8088
+docker port plex-curator        # should show 5000
 docker logs plex-curator
 ```
 
 ### Scheduled jobs not running
 - Click the status badge on the dashboard — it opens the job's captured log and run history
-- `curl http://localhost:8088/status` for raw job state
+- `curl http://localhost:5000/status` for raw job state
 
 ### Curation not finding movies
 - Check minimum rating isn't too high

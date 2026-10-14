@@ -52,7 +52,7 @@ def parse_ollama_response(resp_text):
                 keywords.append(cleaned)
     
     if keywords:
-        return keywords[:10]
+        return keywords[:50]
     
     resp_text = resp_text.strip("{}[]\n ")
     
@@ -240,6 +240,9 @@ def suggest_shows(theme_prompt, candidates, want):
         lines.append(f"{i}. " + " | ".join(parts))
 
     show_list = "\n".join(lines)
+    # The example array must show the full requested count — small models
+    # copy the example's length (an example of 2 yields exactly 2 picks)
+    example = json.dumps([f"Show Title {i}" for i in range(1, min(want, 8) + 1)])
     prompt = f"""{theme_prompt}
 
 Below is a numbered list of TV shows available in the library.
@@ -248,14 +251,16 @@ Pick the {want} shows that best fit the theme above.
 {show_list}
 
 Rules:
+- Return exactly {want} different shows. Return fewer ONLY if the list has fewer shows that fit the theme.
 - Only choose shows from the list above, with titles exactly as written (omit the year and extra fields).
 - Do not invent shows that are not in the list.
 - Do not return explanations.
 
-Return ONLY valid JSON:
-["Show Title 1", "Show Title 2"]
+Return ONLY a valid JSON array of {want} titles, like:
+{example}
 """
     returned = ai_request(prompt)
+    log(f"[-] AI returned {len(returned)} items")
 
     by_norm = {normalize_title(c["title"]): c for c in candidates}
     picked = []

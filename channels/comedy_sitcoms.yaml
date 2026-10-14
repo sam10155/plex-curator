@@ -10,4 +10,5 @@ target_hours: 4
 max_hours: 5
 shows_per_block: 6
 genre_hints: [Comedy, Sitcom]
+exclude_genres: [Animation, Children]
 default_schedule: "0 3 * * 5"

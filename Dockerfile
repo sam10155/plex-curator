@@ -20,6 +20,6 @@ COPY requirements.txt /opt/plex-curator/
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-EXPOSE 8088
+EXPOSE 5000
 
 CMD ["python3", "-m", "src.webui"]
